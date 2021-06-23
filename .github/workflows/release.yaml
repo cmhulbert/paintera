@@ -42,7 +42,7 @@ jobs:
         id: release_pr
         uses: peter-evans/create-pull-request@v3
         with:
-          commit-message: Release painter ${{ env.NEW_PROJECT_VERSION }}
+          commit-message: Release paintera ${{ env.NEW_PROJECT_VERSION }}
           delete-branch: true
           signoff: false
           draft: false
