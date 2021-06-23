@@ -4,7 +4,6 @@ set -e
 
 PROJECT_VERSION=$(.github/workflows/get-mvn-property.sh project.version)
 PROJECT_NAME=$(.github/workflows/get-mvn-property.sh project.name)
-export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 echo PROJECT_VERSION="$PROJECT_VERSION" >>"$GITHUB_ENV"
 echo PROJECT_VERSION="$PROJECT_VERSION"
 echo PROJECT_NAME="$PROJECT_NAME" >>"$GITHUB_ENV"
