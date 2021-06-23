@@ -2,6 +2,5 @@
 
 set -e
 
-sed "s/^version=${PROJECT_VERSION}$/version=${NEW_PROJECT_VERSION}/" gradle.properties -i
-PROJECT_VERSION=$(.github/workflows/get-property.sh version)
+mvn versions:set -DnewVersion=${NEW_PROJECT_VERSION} versions:commit
 [ "$PROJECT_VERSION" = "${NEW_PROJECT_VERSION}" ]

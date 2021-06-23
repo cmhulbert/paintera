@@ -23,7 +23,7 @@ jobs:
         name: Determine release version
         run: .github/workflows/determine-release-version.sh
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
-        name: Set version in gradle.properties
+        name: Set release version in pom.xml
         run: .github/workflows/replace-version.sh
       - name: Set up Python 3.9
         if: ${{ env.IS_RELEASE_REQUEST != '' }}
@@ -34,7 +34,7 @@ jobs:
         if: ${{ env.IS_RELEASE_REQUEST != '' }}
         run: python -m pip install auto-changelog
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
-        run: python -m auto_changelog --tag-pattern 'ntakt-[0-9]+\.[0-9]+\.[0-9]+' -v ntakt-${{ env.NEW_PROJECT_VERSION }}
+        run: python -m auto_changelog --tag-pattern 'paintera-[0-9]+\.[0-9]+\.[0-9]+' -v paintera-${{ env.NEW_PROJECT_VERSION }}
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
         run: echo RELEASE_BRANCH="release-request/${{ env.NEW_PROJECT_VERSION }}" >> $GITHUB_ENV
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
@@ -42,7 +42,7 @@ jobs:
         id: release_pr
         uses: peter-evans/create-pull-request@v3
         with:
-          commit-message: Release nta.kt ${{ env.NEW_PROJECT_VERSION }}
+          commit-message: Release painter ${{ env.NEW_PROJECT_VERSION }}
           delete-branch: true
           signoff: false
           draft: false
@@ -59,22 +59,19 @@ jobs:
           comment: |
             Created release request PR #${{ steps.release_pr.outputs.pull-request-number }}
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
-        name: Bump semver to next development cycle
+        name: Bump semver in pom.xml to next development cycle
         run: .github/workflows/bump-semver.sh
-      - if: ${{ env.IS_RELEASE_REQUEST != '' }}
-        name: Update gradle.properties with bumped version
-        run: .github/workflows/replace-version.sh
       - if: ${{ env.IS_RELEASE_REQUEST != '' }}
         uses: EndBug/add-and-commit@v7
         with:
-          add: 'gradle.properties'
+          add: 'pom.xml'
           default_author: github_actions
           message: Bump to next development cycle  ${{ env.NEW_PROJECT_VERSION }}
           push: true
           pull_strategy: NO-PULL
           branch: ${{ env.RELEASE_BRANCH }}
-        
+
       - run: echo "🍏 This job's status is ${{ job.status }}."
         if: ${{ always() }}
-      
-          
+
+
