@@ -23,7 +23,7 @@ jobs:
           java-version: "11"
           distribution: "adopt"
       - name: Build and execute unit tests
-        run: mvn clean build test
+        run: mvn --batch-mode clean build test
 
   Create-Release:
     runs-on: ubuntu-latest
@@ -59,7 +59,7 @@ jobs:
           distribution: "adopt"
       - name: Build and execute unit tests
         if: ${{ env.IS_RELEASE_VERSION == 1 }}
-        run: mvn install
+        run: mvn --batch-mode install
       - name: Create Release
         if: ${{ env.IS_RELEASE_VERSION == 1 }}
         id: create_release

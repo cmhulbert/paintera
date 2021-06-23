@@ -7,7 +7,7 @@ echo PROJECT_VERSION="$PROJECT_VERSION" >>"$GITHUB_ENV"
 echo PROJECT_VERSION="$PROJECT_VERSION"
 
 if [[ "$PROJECT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  mvn build-helper:parse-version versions:set -DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.incrementalVersion}-SNAPSHOT versions:commit
+  mvn --batch-mode build-helper:parse-version versions:set -DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.incrementalVersion}-SNAPSHOT versions:commit
   IS_RELEASE_VERSION='1'
 else
   NEW_PROJECT_VERSION=''
