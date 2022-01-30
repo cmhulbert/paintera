@@ -1,22 +1,5 @@
 package org.janelia.saalfeldlab.paintera.viewer3d;
 
-import java.io.File;
-import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Predicate;
-
-import javax.imageio.ImageIO;
-
-import org.janelia.saalfeldlab.fx.event.MouseDragFX;
-import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread;
-import org.janelia.saalfeldlab.paintera.control.ControlUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -32,6 +15,21 @@ import javafx.scene.transform.Affine;
 import javafx.stage.FileChooser;
 import net.imglib2.Interval;
 import net.imglib2.ui.TransformListener;
+import org.janelia.saalfeldlab.fx.event.MouseDragFX;
+import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread;
+import org.janelia.saalfeldlab.paintera.control.ControlUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 public class Scene3DHandler {
 
@@ -131,6 +129,24 @@ public class Scene3DHandler {
 	});
   }
 
+  //FIXME: use rotateActionSet?
+  //  private ActionSet rotateActionSet() {
+  //
+  //	return new PainteraDragActionSet(NavigationActionType.Rotate, "rotate 3d", dragActionSet -> {
+  //	  final var factor = new SimpleDoubleProperty();
+  //	  final var speed = new SimpleDoubleProperty();
+  //	  dragActionSet.getDragDetectedAction().onAction(event -> {
+  //		factor.set(1.0);
+  //		if (event.isShiftDown()) {
+  //		  factor.set(.1);
+  //		  if (event.isControlDown()) {
+  //			factor.set(2.0);
+  //		  }
+  //		}
+  //	  });
+  //	});
+  //  }
+
   private class Rotate extends MouseDragFX {
 
 	private final SimpleDoubleProperty speed = new SimpleDoubleProperty();
@@ -145,10 +161,9 @@ public class Scene3DHandler {
 
 	private final Affine affineDragStart = new Affine();
 
-	public Rotate(final String name, final DoubleProperty speed, final double factor, final Predicate<MouseEvent>
-			eventFilter) {
+	public Rotate(final String name, final DoubleProperty speed, final double factor, final Predicate<MouseEvent> eventFilter) {
 
-	  super(name, eventFilter, true, affine, false);
+	  super(name, eventFilter, true, false);
 	  LOG.trace("rotation");
 	  this.factor.set(factor);
 	  this.speed.set(speed.get() * this.factor.get());
@@ -172,7 +187,7 @@ public class Scene3DHandler {
 
 	  this.speed.set(speed.get() * this.factor.get());
 
-	  synchronized (getTransformLock()) {
+	  synchronized (affine) {
 		affineDragStart.setToTransform(affine);
 	  }
 	}
@@ -180,7 +195,7 @@ public class Scene3DHandler {
 	@Override
 	public void drag(final javafx.scene.input.MouseEvent event) {
 
-	  synchronized (getTransformLock()) {
+	  synchronized (affine) {
 		LOG.trace("drag - rotate");
 		final Affine target = new Affine(affineDragStart);
 		final double dX = event.getX() - getStartX();
@@ -201,7 +216,7 @@ public class Scene3DHandler {
 
 	public TranslateXY(final String name, final Predicate<MouseEvent> eventFilter) {
 
-	  super(name, eventFilter, true, affine, false);
+	  super(name, eventFilter, true, false);
 	  LOG.trace("translate");
 	}
 
@@ -213,7 +228,7 @@ public class Scene3DHandler {
 	@Override
 	public void drag(final MouseEvent event) {
 
-	  synchronized (getTransformLock()) {
+	  synchronized (affine) {
 		LOG.trace("drag - translate");
 		final double dX = event.getX() - getStartX();
 		final double dY = event.getY() - getStartY();

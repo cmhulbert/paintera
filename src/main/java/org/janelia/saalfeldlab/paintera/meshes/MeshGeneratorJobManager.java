@@ -1113,10 +1113,9 @@ public class MeshGeneratorJobManager<T> {
 			BlockTreeNodeState.HIDDEN
 	);
 
-	meshesAndBlocks.keySet().stream().allMatch(key -> {
+	meshesAndBlocks.keySet().forEach(key -> {
 	  final StatefulBlockTreeNode<ShapeKey<T>> node = blockTree.nodes.get(key);
 	  assert sceneBlockStates.contains(node.state) : "A block that is currently in the scene is not in one of the valid states: " + node + ", key: " + key;
-	  return true;
 	});
 
 	final Set<ShapeKey<T>> notInScene = new HashSet<>(blockTree.nodes.keySet());

@@ -4,6 +4,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCode.*
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination.*
+import org.janelia.saalfeldlab.fx.actions.NamedKeyCombination
 
 private infix fun String.byKeyCombo(keyCode: KeyCode) = NamedKeyCombination(this, KeyCodeCombination(keyCode))
 
@@ -40,7 +41,8 @@ object PainteraBaseKeys {
     const val TOGGLE_MENUBAR_MODE              = "toggle menubar mode"
     const val TOGGLE_STATUSBAR_VISIBILITY      = "toggle statusbar visibility"
     const val TOGGLE_STATUSBAR_MODE            = "toggle statusbar mode"
-    const val OPEN_HELP                        = "open help"
+    const val OPEN_README                      = "open readme"
+    const val OPEN_KEY_BINDINGS                = "open key bindings"
     const val QUIT                             = "quit"
     const val TOGGLE_SIDE_BAR                  = "toggle side bar"
     const val FILL_CONNECTED_COMPONENTS        = "fill connected components"
@@ -54,7 +56,8 @@ object PainteraBaseKeys {
         TOGGLE_MENUBAR_MODE                         byKeyCombo SHIFT_DOWN + F2,
         TOGGLE_STATUSBAR_VISIBILITY                 byKeyCombo F3,
         TOGGLE_STATUSBAR_MODE                       byKeyCombo SHIFT_DOWN + F3,
-        OPEN_HELP                                   byKeyCombo F1,
+        OPEN_README                                 byKeyCombo F1,
+        OPEN_KEY_BINDINGS                           byKeyCombo F4,
         QUIT                                        byKeyCombo CONTROL_DOWN + Q,
         TOGGLE_SIDE_BAR                             byKeyCombo P,
         CYCLE_CURRENT_SOURCE_FORWARD                byKeyCombo CONTROL_DOWN + TAB,
@@ -74,22 +77,25 @@ object PainteraBaseKeys {
 }
 
 object LabelSourceStateKeys {
-    const val SELECT_ALL                            = "select all"
-    const val SELECT_ALL_IN_CURRENT_VIEW            = "select all in current view"
-    const val LOCK_SEGEMENT                         = "lock segment"
-    const val NEXT_ID                               = "next id"
-    const val COMMIT_DIALOG                         = "commit dialog"
-    const val MERGE_ALL_SELECTED                    = "merge all selected"
-    const val ENTER_SHAPE_INTERPOLATION_MODE        = "shape interpolation: enter mode"
-    const val EXIT_SHAPE_INTERPOLATION_MODE         = "shape interpolation: exit mode"
-    const val SHAPE_INTERPOLATION_APPLY_MASK        = "shape interpolation: apply mask"
-    const val SHAPE_INTERPOLATION_EDIT_SELECTION_1  = "shape interpolation: edit selection 1"
-    const val SHAPE_INTERPOLATION_EDIT_SELECTION_2  = "shape interpolation: edit selection 2"
-    const val ARGB_STREAM_INCREMENT_SEED            = "argb stream: increment seed"
-    const val ARGB_STREAM_DECREMENT_SEED            = "argb stream: decrement seed"
-    const val REFRESH_MESHES                        = "refresh meshes"
-    const val CANCEL_3D_FLOODFILL                   = "3d floodfill: cancel"
-    const val TOGGLE_NON_SELECTED_LABELS_VISIBILITY = "toggle non-selected labels visibility"
+    const val SELECT_ALL                                   = "select all"
+    const val SELECT_ALL_IN_CURRENT_VIEW                   = "select all in current view"
+    const val LOCK_SEGEMENT                                = "lock segment"
+    const val NEXT_ID                                      = "next id"
+    const val COMMIT_DIALOG                                = "commit dialog"
+    const val MERGE_ALL_SELECTED                           = "merge all selected"
+    const val ENTER_SHAPE_INTERPOLATION_MODE               = "shape interpolation: enter mode"
+    const val EXIT_SHAPE_INTERPOLATION_MODE                = "shape interpolation: exit mode"
+    const val SHAPE_INTERPOLATION_APPLY_MASK               = "shape interpolation: apply mask"
+    const val SHAPE_INTERPOLATION_APPLY_MASK_INPLACE       = "shape interpolation: apply mask inplace"
+    const val SHAPE_INTERPOLATION_EDIT_SELECTION_1         = "shape interpolation: edit selection 1"
+    const val SHAPE_INTERPOLATION_EDIT_SELECTION_2         = "shape interpolation: edit selection 2"
+    const val SHAPE_INTERPOLATION_EDIT_PREVIOUS_SELECTION  = "shape interpolation: edit previous selection"
+    const val SHAPE_INTERPOLATION_EDIT_NEXT_SELECTION      = "shape interpolation: edit next selection"
+    const val ARGB_STREAM_INCREMENT_SEED                   = "argb stream: increment seed"
+    const val ARGB_STREAM_DECREMENT_SEED                   = "argb stream: decrement seed"
+    const val REFRESH_MESHES                               = "refresh meshes"
+    const val CANCEL_3D_FLOODFILL                          = "3d floodfill: cancel"
+    const val TOGGLE_NON_SELECTED_LABELS_VISIBILITY        = "toggle non-selected labels visibility"
 
     private val namedComboMap = NamedKeyCombination.CombinationMap(
         SELECT_ALL                                  byKeyCombo A + CONTROL_DOWN,
@@ -101,8 +107,11 @@ object LabelSourceStateKeys {
         ENTER_SHAPE_INTERPOLATION_MODE              byKeyCombo S,
         EXIT_SHAPE_INTERPOLATION_MODE               byKeyCombo ESCAPE,
         SHAPE_INTERPOLATION_APPLY_MASK              byKeyCombo ENTER,
+        SHAPE_INTERPOLATION_APPLY_MASK_INPLACE      byKeyCombo SHIFT_DOWN + ENTER,
         SHAPE_INTERPOLATION_EDIT_SELECTION_1        byKeyCombo DIGIT1,
         SHAPE_INTERPOLATION_EDIT_SELECTION_2        byKeyCombo DIGIT2,
+        SHAPE_INTERPOLATION_EDIT_PREVIOUS_SELECTION byKeyCombo LEFT,
+        SHAPE_INTERPOLATION_EDIT_NEXT_SELECTION     byKeyCombo RIGHT,
         ARGB_STREAM_INCREMENT_SEED                  byKeyCombo C,
         ARGB_STREAM_DECREMENT_SEED                  byKeyCombo C + SHIFT_DOWN,
         REFRESH_MESHES                              byKeyCombo R,

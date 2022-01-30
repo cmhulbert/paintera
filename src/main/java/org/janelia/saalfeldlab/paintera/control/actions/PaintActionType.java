@@ -8,7 +8,8 @@ public enum PaintActionType implements ActionType {
   Background,
   Fill,
   Restrict,
-  SetBrush;
+  SetBrush,
+  ShapeInterpolation;
 
   public static EnumSet<PaintActionType> of(final PaintActionType first, final PaintActionType... rest) {
 

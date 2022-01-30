@@ -80,7 +80,6 @@ public class MultiBoxOverlayFX {
   private final Color inactiveFrontColor = Color.LIGHTGRAY;
 
   private final Color canvasColor = Color.rgb(0xbb, 0xbb, 0xbb, 0xb0 / 255.0);
-  // new Color( 0xb0bbbbbb, true );
 
   private final RenderBoxHelperFX renderBoxHelper = new RenderBoxHelperFX();
 
@@ -145,17 +144,8 @@ public class MultiBoxOverlayFX {
 	final long y = boxScreen.min(1) + boxScreen.dimension(1) / 2;
 
 	final Affine t = graphics.getTransform();
-	//		awt affine to javafx affine:
+	//NOTE: awt affine to javafx affine:
 	//		https://stackoverflow.com/questions/32896309/how-to-convert-an-instance-of-java-awt-geom
-	// -affinetransform-to-an-instance-of-ja
-	//		mxx = m00
-	//		mxy = m01
-	//		tx  = m02
-	//		myx = m10
-	//		myy = m11
-	//		ty  = m12
-	//		new AffineTransform( m00, m10, m01, m11, m02, m12 )
-	//		final AffineTransform translate = new AffineTransform( 1, 0, 0, 1, x, y );
 	final Affine translate = new Affine(1, 0, x, 0, 1, y);
 	translate.prepend(t);
 	graphics.setTransform(translate);

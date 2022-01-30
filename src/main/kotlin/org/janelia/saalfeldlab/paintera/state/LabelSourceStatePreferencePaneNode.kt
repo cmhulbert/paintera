@@ -49,7 +49,8 @@ class LabelSourceStatePreferencePaneNode(
     private val converter: HighlightingStreamConverter<*>,
     private val meshManager: MeshManagerWithAssignmentForSegments,
     private val meshSettings: ManagedMeshSettings,
-    private val brushProperties: LabelSourceStatePaintHandler.BrushProperties?
+    //TODO Caleb: Should brushProperties be static? If not, how do we get the tool object? In general, how to configure tool properties?
+    private val brushProperties: BrushProperties?
 ) {
 
     private val stream = converter.stream
@@ -271,7 +272,7 @@ class LabelSourceStatePreferencePaneNode(
 
     private class MaskedSourceNode(
         private val source: DataSource<*, *>,
-        private val brushProperties: LabelSourceStatePaintHandler.BrushProperties
+        private val brushProperties: BrushProperties
     ) {
 
         val node: Node?

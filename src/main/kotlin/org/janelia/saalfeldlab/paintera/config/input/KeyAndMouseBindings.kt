@@ -1,7 +1,7 @@
 package org.janelia.saalfeldlab.paintera.config.input
 
-import org.janelia.saalfeldlab.paintera.NamedKeyCombination
-import org.janelia.saalfeldlab.paintera.NamedMouseCombination
+import org.janelia.saalfeldlab.fx.actions.NamedKeyCombination
+import org.janelia.saalfeldlab.fx.actions.NamedMouseCombination
 
 class KeyAndMouseBindings(
     private val defaultKeyCombinations: NamedKeyCombination.CombinationMap,

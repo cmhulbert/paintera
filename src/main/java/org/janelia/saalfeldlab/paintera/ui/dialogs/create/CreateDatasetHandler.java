@@ -72,7 +72,7 @@ public class CreateDatasetHandler {
 		  final Source<?> currentSource,
 		  final Source<?>... allSources) throws IOException {
 
-	if (!pbv.allowedActionsProperty().get().isAllowed(MenuActionType.CreateLabelSource)) {
+	if (!pbv.isActionAllowed(MenuActionType.CreateLabelSource)) {
 	  LOG.debug("Creating Label Sources is disabled");
 	  return;
 	}

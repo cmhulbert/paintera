@@ -51,6 +51,7 @@ import net.imglib2.RealPositionable;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.ui.TransformListener;
 import net.imglib2.util.Intervals;
+import org.janelia.saalfeldlab.fx.ObservablePosition;
 import org.janelia.saalfeldlab.paintera.Paintera;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,6 +99,8 @@ public class ViewerPanelFX
   private final ViewerOptions.Values options;
 
   private final MouseCoordinateTracker mouseTracker = new MouseCoordinateTracker();
+
+  private boolean focusable = true;
 
   public ViewerPanelFX(
 		  final List<SourceAndConverter<?>> sources,
@@ -211,6 +214,23 @@ public class ViewerPanelFX
   public void setAllSources(final Collection<? extends SourceAndConverter<?>> sources) {
 
 	this.state.setSources(sources);
+  }
+
+  public boolean isFocusable() {
+
+	return focusable;
+  }
+
+  public void setFocusable(boolean focusable) {
+
+	this.focusable = focusable;
+  }
+
+  @Override public void requestFocus() {
+
+	if (this.focusable) {
+	  super.requestFocus();
+	}
   }
 
   /**
@@ -462,21 +482,21 @@ public class ViewerPanelFX
   }
 
   /**
-   * @return {@link MouseCoordinateTracker#mouseXProperty()}
-   * @see MouseCoordinateTracker#mouseXProperty()
+   * @return {@link MouseCoordinateTracker#getMouseXProperty()}
+   * @see MouseCoordinateTracker#getMouseXProperty()
    */
-  public ReadOnlyDoubleProperty mouseXProperty() {
+  public ReadOnlyDoubleProperty getMouseXProperty() {
 
-	return mouseTracker.mouseXProperty();
+	return mouseTracker.getMouseXProperty();
   }
 
   /**
-   * @return {@link MouseCoordinateTracker#mouseYProperty()}
-   * @see MouseCoordinateTracker#mouseYProperty()
+   * @return {@link MouseCoordinateTracker#getMouseYProperty()}
+   * @see MouseCoordinateTracker#getMouseYProperty()
    */
-  public ReadOnlyDoubleProperty mouseYProperty() {
+  public ReadOnlyDoubleProperty getMouseYProperty() {
 
-	return mouseTracker.mouseYProperty();
+	return mouseTracker.getMouseYProperty();
   }
 
   /**
@@ -496,6 +516,10 @@ public class ViewerPanelFX
    * @return {@link OverlayPane} used for drawing overlays without re-rendering 2D cross-sections
    */
   public OverlayPane<?> getDisplay() {
+
+	var pos = new ObservablePosition(0, 0);
+	pos.getX();
+	pos.setX(0.0);
 
 	return this.overlayPane;
   }

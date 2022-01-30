@@ -13,11 +13,14 @@ import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
 import javafx.beans.binding.ObjectBinding;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
@@ -193,13 +196,17 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
   private final int[][] blockSizes;
 
-  private Mask<UnsignedLongType> currentMask = null;
+  private final ObjectProperty<Mask<UnsignedLongType>> currentMaskProperty = new SimpleObjectProperty<>(null);
 
-  private boolean isPersisting = false;
+  private final BooleanProperty isPersistingProperty = new SimpleBooleanProperty(false);
 
-  private boolean isCreatingMask = false;
+  private final BooleanProperty isCreatingMaskProperty = new SimpleBooleanProperty(false);
 
   private final BooleanProperty isApplyingMask = new SimpleBooleanProperty();
+
+  private final BooleanBinding isMaskInUseBinding = Bindings.createBooleanBinding(() -> {
+	return isCreatingMask() || getCurrentMask() != null || isApplyingMask.get() || isPersisting();
+  }, isCreatingMaskProperty, currentMaskProperty, isApplyingMaskProperty(), isPersistingProperty);
 
   private final BooleanProperty isBusy = new SimpleBooleanProperty();
 
@@ -296,6 +303,11 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	return isBusy;
   }
 
+  public BooleanBinding isMaskInUseBinding() {
+
+	return isMaskInUseBinding;
+  }
+
   public BooleanProperty showCanvasOverBackgroundProperty() {
 
 	return showCanvasOverBackground;
@@ -303,7 +315,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
   public Mask<UnsignedLongType> getCurrentMask() {
 
-	return currentMask;
+	return currentMaskProperty.get();
   }
 
   public synchronized Mask<UnsignedLongType> generateMask(
@@ -315,11 +327,11 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	if (isMaskInUse()) {
 	  LOG.error(
 			  "Currently processing, cannot generate new mask: persisting? {} mask in use? {}",
-			  isPersisting,
-			  currentMask);
+			  isPersisting(),
+			  getCurrentMask());
 	  throw new MaskInUse("Busy, cannot generate new mask.");
 	}
-	this.isCreatingMask = true;
+	this.isCreatingMaskProperty.set(true);
 	this.isBusy.set(true);
 	LOG.debug("Generating mask: {}", maskInfo);
 
@@ -332,15 +344,25 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 			store,
 			store.getCellGrid());
 	final Mask<UnsignedLongType> mask = new Mask<>(maskInfo, trackingStore, store.getCache(), vstore.getInvalidate(), store::shutdown);
-	this.currentMask = mask;
-	this.isCreatingMask = false;
+	this.currentMaskProperty.set(mask);
+	this.isCreatingMaskProperty.set(false);
 	this.isBusy.set(false);
 	return mask;
   }
 
+  private boolean isPersisting() {
+
+	return isPersistingProperty.get();
+  }
+
+  private boolean isCreatingMask() {
+
+	return isCreatingMaskProperty.get();
+  }
+
   private boolean isMaskInUse() {
 
-	return isCreatingMask || currentMask != null || isApplyingMask.get() || isPersisting;
+	return isMaskInUseBinding.get();
   }
 
   public synchronized void setMask(
@@ -351,11 +373,11 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	if (isMaskInUse()) {
 	  LOG.error(
 			  "Currently processing, cannot set new mask: persisting? {} mask in use? {}",
-			  isPersisting,
-			  currentMask);
+			  isPersisting(),
+			  getCurrentMask());
 	  throw new MaskInUse("Busy, cannot set new mask.");
 	}
-	this.isCreatingMask = true;
+	this.isCreatingMaskProperty.set(true);
 	this.isBusy.set(true);
 
 	// TODO should we always require CachedcellImage for mask.mask? That would make this check obsolete.
@@ -370,8 +392,8 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
 	setMasks(store, vstore, mask.info.level, mask.info.value, isPaintedForeground);
 
-	this.currentMask = mask;
-	this.isCreatingMask = false;
+	this.currentMaskProperty.set(mask);
+	this.isCreatingMaskProperty.set(false);
 	this.isBusy.set(false);
   }
 
@@ -388,20 +410,20 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	if (isMaskInUse()) {
 	  LOG.error(
 			  "Currently processing, cannot set new mask: persisting? {} mask in use? {}",
-			  isPersisting,
-			  currentMask
+			  isPersisting(),
+			  getCurrentMask()
 	  );
 	  throw new MaskInUse("Busy, cannot set new mask.");
 	}
-	this.isCreatingMask = true;
+	this.isCreatingMaskProperty.set(true);
 	this.isBusy.set(true);
 
 	setMasks(mask, vmask, maskInfo.level, maskInfo.value, isPaintedForeground);
 
 	final RandomAccessibleInterval<UnsignedLongType> rasteredMask = Views.interval(Views.raster(mask), source.getSource(0, maskInfo.level));
 	// TODO how to get invalidateVolatile here?
-	this.currentMask = new Mask<>(maskInfo, rasteredMask, invalidate, volatileInvalidate, shutdown);
-	this.isCreatingMask = false;
+	this.currentMaskProperty.set(new Mask<>(maskInfo, rasteredMask, invalidate, volatileInvalidate, shutdown));
+	this.isCreatingMaskProperty.set(false);
 	this.isBusy.set(false);
   }
 
@@ -415,7 +437,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	final var applyMaskThread = new Thread(() -> {
 	  Thread.currentThread().setName("apply mask");
 	  synchronized (this) {
-		final boolean maskCanBeApplied = !this.isCreatingMask && this.currentMask == mask && !this.isApplyingMask.get() && !this.isPersisting;
+		final boolean maskCanBeApplied = !this.isCreatingMask() && this.getCurrentMask() == mask && !this.isApplyingMask.get() && !this.isPersisting();
 		if (!maskCanBeApplied) {
 		  LOG.debug("Did not pass valid mask {}, will not do anything", mask);
 		  this.isBusy.set(false);
@@ -445,9 +467,9 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 			  canvas.getCellGrid(),
 			  paintedInterval);
 
-	  final Mask<UnsignedLongType> currentMaskBeforePropagation = this.currentMask;
+	  final Mask<UnsignedLongType> currentMaskBeforePropagation = this.getCurrentMask();
 	  synchronized (this) {
-		this.currentMask = null;
+		this.currentMaskProperty.set(null);
 	  }
 
 	  final TLongSet paintedBlocksAtHighestResolution = this.scaleBlocksToLevel(
@@ -561,12 +583,12 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
   public void resetMasks() throws MaskInUse {
 
 	synchronized (this) {
-	  final boolean canResetMask = !isCreatingMask && !isApplyingMask.get();
+	  final boolean canResetMask = !isCreatingMask() && !isApplyingMask.get();
 	  LOG.debug("Can reset mask? {}", canResetMask);
 	  if (!canResetMask)
 		throw new MaskInUse("Busy, cannot reset mask.");
 
-	  this.currentMask = null;
+	  this.currentMaskProperty.set(null);
 	  this.isBusy.set(true);
 	}
 	setMasksConstant();
@@ -577,9 +599,9 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
   public void forgetCanvases() throws CannotClearCanvas {
 
 	synchronized (this) {
-	  if (this.isPersisting)
+	  if (this.isPersisting())
 		throw new CannotClearCanvas("Currently persisting canvas -- try again later.");
-	  this.currentMask = null;
+	  this.currentMaskProperty.set(null);
 	}
 	clearCanvases();
   }
@@ -595,14 +617,14 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	  if (isMaskInUse()) {
 		LOG.error(
 				"Cannot persist canvas: is persisting? {} has mask? {} is creating mask? {} is applying mask? {}",
-				this.isPersisting,
-				this.currentMask != null,
-				this.isCreatingMask,
+				this.isPersisting(),
+				this.getCurrentMask() != null,
+				this.isCreatingMask(),
 				this.isApplyingMask
 		);
 		throw new CannotPersist("Can not persist canvas!");
 	  }
-	  this.isPersisting = true;
+	  this.isPersistingProperty.set(true);
 	  this.isBusy.set(true);
 	}
 
@@ -610,7 +632,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	final CachedCellImg<UnsignedLongType, ?> canvas = this.dataCanvases[0];
 	final long[] affectedBlocks = this.affectedBlocks.toArray();
 	this.affectedBlocks.clear();
-	final BooleanProperty proxy = new SimpleBooleanProperty(this.isPersisting);
+	final BooleanProperty proxy = new SimpleBooleanProperty(this.isPersisting());
 	final ObservableList<String> states = FXCollections.observableArrayList();
 
 	final Consumer<String> nextState = states::add;
@@ -717,7 +739,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	  }
 	  animateProgressBar.accept(1.0);
 	}).onEnd(t -> {
-	  this.isPersisting = false;
+	  this.isPersistingProperty.set(false);
 	  proxy.set(false);
 	  this.isBusy.set(false);
 	}).onFailed((e, t) -> {
@@ -747,7 +769,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
 	// ignore interpolation method because we cannot use linear interpolation on LabelMultisetType
 	final RealRandomAccessible<T> interpolatedSource = this.source.getInterpolatedSource(t, level, Interpolation.NEARESTNEIGHBOR);
-	if (!this.showCanvasOverBackground.get() || this.affectedBlocks.size() == 0 && this.currentMask == null) {
+	if (!this.showCanvasOverBackground.get() || this.affectedBlocks.size() == 0 && this.getCurrentMask() == null) {
 	  LOG.trace("Hide canvas or no mask/canvas data present -- delegate to underlying source");
 	  sourceToExtend = interpolatedSource;
 	} else {
@@ -814,7 +836,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
 	// ignore interpolation method because we cannot use linear interpolation on LabelMultisetType
 	final RealRandomAccessible<D> interpolatedDataSource = this.source.getInterpolatedDataSource(t, level, Interpolation.NEARESTNEIGHBOR);
-	if (!this.showCanvasOverBackground.get() || this.affectedBlocks.size() == 0 && this.currentMask == null) {
+	if (!this.showCanvasOverBackground.get() || this.affectedBlocks.size() == 0 && this.getCurrentMask() == null) {
 	  LOG.trace("Hide canvas or no mask/canvas data present -- delegate to underlying source");
 	  dataSourceToExtend = interpolatedDataSource;
 	} else {
@@ -1031,8 +1053,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 			  paintedLevel
 	  );
 	  this.affectedBlocksByLabel[level].computeIfAbsent(label.getIntegerLong(), key -> new TLongHashSet())
-			  .addAll(
-					  affectedBlocksAtLowerLevel);
+			  .addAll(affectedBlocksAtLowerLevel);
 
 	  final Interval paintedIntervalAtTargetLevel = scaleIntervalToLevel(
 			  intervalAtPaintedScale,
@@ -1043,8 +1064,7 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	  // upsample
 	  final CachedCellImg<UnsignedLongType, LongAccess> canvasAtTargetLevel = dataCanvases[level];
 	  final CellGrid gridAtTargetLevel = canvasAtTargetLevel.getCellGrid();
-	  final int[] blockSize = new int[gridAtTargetLevel
-			  .numDimensions()];
+	  final int[] blockSize = new int[gridAtTargetLevel.numDimensions()];
 	  gridAtTargetLevel.cellDimensions(blockSize);
 
 	  final long[] cellPosTarget = new long[gridAtTargetLevel.numDimensions()];
@@ -1152,12 +1172,13 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	return blocks;
   }
 
-  public static TLongSet affectedBlocks(final RandomAccessibleInterval<?> input, final CellGrid grid, final Interval
-		  interval) {
+  public static TLongSet affectedBlocks(
+		  final RandomAccessibleInterval<?> input,
+		  final CellGrid grid,
+		  final Interval interval) {
 
 	if (input instanceof AccessedBlocksRandomAccessible<?>) {
-	  final AccessedBlocksRandomAccessible<?> tracker = (net.imglib2.util.AccessedBlocksRandomAccessible<?>)
-			  input;
+	  final var tracker = (net.imglib2.util.AccessedBlocksRandomAccessible<?>)input;
 	  if (grid.equals(tracker.getGrid())) {
 		final long[] blocks = tracker.listBlocks();
 		LOG.debug("Got these blocks from tracker: {}", blocks);

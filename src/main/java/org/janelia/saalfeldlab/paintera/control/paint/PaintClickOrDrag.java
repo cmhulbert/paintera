@@ -34,9 +34,36 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+//TODO Caleb: Remove in favor of Kotlin Controller variant
+@Deprecated
 public class PaintClickOrDrag implements InstallAndRemove<Node> {
 
   private static Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+  private void handleOnReleaseEvent(MouseEvent event) {
+
+	synchronized (PaintClickOrDrag.this) {
+	  try {
+		if (!getIsPainting()) {
+		  LOG.debug("Not currently painting -- will not do anything");
+		  LOG.debug("Not currently painting -- will not do anything");
+		} else if (this.paintIntoThis == null) {
+		  LOG.debug("No current source available -- will not do anything");
+		} else {
+		  try {
+			this.paintIntoThis.applyMask(this.mask, this.interval, FOREGROUND_CHECK);
+		  } catch (final Exception e) {
+			InvokeOnJavaFXApplicationThread.invoke(() -> Exceptions.exceptionAlert(Constants.NAME, "Exception when trying to submit mask.", e).show());
+		  }
+		}
+
+	  }
+	  // always release
+	  finally {
+		release();
+	  }
+	}
+  }
 
   public static class IllegalIdForPainting extends PainteraException {
 
@@ -92,11 +119,11 @@ public class PaintClickOrDrag implements InstallAndRemove<Node> {
 
   private final Predicate<MouseEvent> check;
 
-  private final EventHandler<MouseEvent> onPress;
+  public final EventHandler<MouseEvent> onPress;
 
-  private final EventHandler<MouseEvent> onDragOrMove;
+  public final EventHandler<MouseEvent> onDragOrMove;
 
-  private final EventHandler<MouseEvent> onRelease;
+  public final EventHandler<MouseEvent> onRelease;
 
   private boolean isPainting = false;
 
@@ -131,49 +158,49 @@ public class PaintClickOrDrag implements InstallAndRemove<Node> {
 	this.brushDepth = brushDepth;
 	this.check = check;
 
-	this.onPress = event -> {
+	this.onPress = this::handleOnPress;
+	this.onDragOrMove = this::handleOnDragOrMoveEvent;
+	this.onRelease = this::handleOnReleaseEvent;
+  }
 
-	  LOG.debug("Entering on click event handler: {}", event);
+  private void handleOnPress(MouseEvent event) {
 
-	  synchronized (PaintClickOrDrag.this) {
-		if (getIsPainting()) {
-		  LOG.debug("Already painting -- will not start new paint.");
-		  return;
-		}
-		if (!check.test(event)) {
-		  LOG.debug("Event did not pass check -- will not start new paint.");
-		  return;
-		}
+	LOG.debug("Entering on click event handler: {}", event);
 
+	synchronized (PaintClickOrDrag.this) {
+	  if (getIsPainting()) {
+		LOG.debug("Already painting -- will not start new paint.");
+	  } else if (!check.test(event)) {
+		LOG.debug("Event did not pass check -- will not start new paint.");
+	  } else {
 		event.consume();
-
 		try {
 		  final Source<?> currentSource = paintera.sourceInfo().currentSourceProperty().get();
-		  if (!(currentSource instanceof MaskedSource<?, ?>))
-			return;
-		  final MaskedSource<?, ?> source = (MaskedSource<?, ?>)currentSource;
-		  final ViewerState state = viewer.getState();
-		  final AffineTransform3D screenScaleTransform = new AffineTransform3D();
-		  viewer.getRenderUnit().getScreenScaleTransform(0, screenScaleTransform);
-		  final AffineTransform3D viewerTransform = new AffineTransform3D();
-		  final int level;
-		  synchronized (state) {
-			state.getViewerTransform(viewerTransform);
-			level = state.getBestMipMapLevel(screenScaleTransform, currentSource);
+		  if (currentSource instanceof MaskedSource<?, ?>) {
+			final MaskedSource<?, ?> source = (MaskedSource<?, ?>)currentSource;
+			final ViewerState state = viewer.getState();
+			final AffineTransform3D screenScaleTransform = new AffineTransform3D();
+			viewer.getRenderUnit().getScreenScaleTransform(0, screenScaleTransform);
+			final AffineTransform3D viewerTransform = new AffineTransform3D();
+			final int level;
+			synchronized (state) {
+			  state.getViewerTransform(viewerTransform);
+			  level = state.getBestMipMapLevel(screenScaleTransform, currentSource);
+			}
+			source.getSourceTransform(0, level, labelToGlobalTransform);
+			this.labelToViewerTransform.set(viewerTransform.copy().concatenate(labelToGlobalTransform));
+			this.globalToViewerTransform.set(viewerTransform);
+			final Long id = paintId.get();
+			if (id == null)
+			  throw new IllegalIdForPainting(id);
+			this.mask = source.generateMask(new MaskInfo<>(0, level, new UnsignedLongType(id)), FOREGROUND_CHECK);
+			this.isPainting = true;
+			this.fillLabel = 1;
+			this.interval = null;
+			this.paintIntoThis = source;
+			position.update(event);
+			paint(position.x, position.y);
 		  }
-		  source.getSourceTransform(0, level, labelToGlobalTransform);
-		  this.labelToViewerTransform.set(viewerTransform.copy().concatenate(labelToGlobalTransform));
-		  this.globalToViewerTransform.set(viewerTransform);
-		  final Long id = paintId.get();
-		  if (id == null)
-			throw new IllegalIdForPainting(id);
-		  this.mask = source.generateMask(new MaskInfo<>(0, level, new UnsignedLongType(id)), FOREGROUND_CHECK);
-		  this.isPainting = true;
-		  this.fillLabel = 1;
-		  this.interval = null;
-		  this.paintIntoThis = source;
-		  position.update(event);
-		  paint(position.x, position.y);
 		}
 		// Ensure we never enter a painting state when an exception occurs
 		catch (final Exception e) {
@@ -181,19 +208,16 @@ public class PaintClickOrDrag implements InstallAndRemove<Node> {
 		  release();
 		}
 	  }
+	}
+  }
 
-	};
+  private void handleOnDragOrMoveEvent(MouseEvent event) {
 
-	this.onDragOrMove = event -> {
-
-	  synchronized (PaintClickOrDrag.this) {
-		if (!getIsPainting()) {
-		  LOG.trace("Not currently painting -- will not paint");
-		  return;
-		}
-
+	synchronized (PaintClickOrDrag.this) {
+	  if (!getIsPainting()) {
+		LOG.trace("Not currently painting -- will not paint");
+	  } else {
 		event.consume();
-
 		try {
 		  double x = event.getX();
 		  double y = event.getY();
@@ -229,34 +253,7 @@ public class PaintClickOrDrag implements InstallAndRemove<Node> {
 		  this.position.update(event);
 		}
 	  }
-	};
-
-	this.onRelease = event -> {
-	  synchronized (PaintClickOrDrag.this) {
-		try {
-		  if (!getIsPainting()) {
-			LOG.debug("Not currently painting -- will not do anything");
-			return;
-		  }
-
-		  if (this.paintIntoThis == null) {
-			LOG.debug("No current source available -- will not do anything");
-			return;
-		  }
-
-		  try {
-			this.paintIntoThis.applyMask(this.mask, this.interval, FOREGROUND_CHECK);
-		  } catch (final Exception e) {
-			InvokeOnJavaFXApplicationThread.invoke(() ->
-					Exceptions.exceptionAlert(Constants.NAME, "Exception when trying to submit mask.", e).show());
-		  }
-		}
-		// always release
-		finally {
-		  release();
-		}
-	  }
-	};
+	}
   }
 
   @Override

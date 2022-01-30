@@ -58,7 +58,7 @@ public class MouseCoordinateTracker implements InstallAndRemove<Node> {
   /**
    * @return read-only property that is tracks the x coordinate of the mouse relative to the node this was installed into.
    */
-  public ReadOnlyDoubleProperty mouseXProperty() {
+  public ReadOnlyDoubleProperty getMouseXProperty() {
 
 	return this.mouseX;
   }
@@ -66,7 +66,7 @@ public class MouseCoordinateTracker implements InstallAndRemove<Node> {
   /**
    * @return read-only property that is tracks the y coordinate of the mouse relative to the node this was installed into.
    */
-  public ReadOnlyDoubleProperty mouseYProperty() {
+  public ReadOnlyDoubleProperty getMouseYProperty() {
 
 	return this.mouseY;
   }
@@ -85,7 +85,7 @@ public class MouseCoordinateTracker implements InstallAndRemove<Node> {
    */
   public synchronized double getMouseX() {
 
-	return this.mouseXProperty().doubleValue();
+	return this.getMouseXProperty().doubleValue();
   }
 
   /**
@@ -93,7 +93,7 @@ public class MouseCoordinateTracker implements InstallAndRemove<Node> {
    */
   public synchronized double getMouseY() {
 
-	return this.mouseYProperty().doubleValue();
+	return this.getMouseYProperty().doubleValue();
   }
 
   private synchronized void setPosition(final double x, final double y) {
