@@ -195,7 +195,7 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
             { keyCombinations.matches(PainteraBaseKeys.CYCLE_INTERPOLATION_MODES, it) }
         ).installInto(borderPane)
 
-        this.resizer = GridResizer(properties.gridConstraints, 5.0, baseView.pane, keyTracker).apply { installInto(baseView.pane) }
+        this.resizer = GridResizer(properties.gridConstraints, 5.0, baseView.pane, keyTracker).also { baseView.pane.installActionSet(it) }
 
         val currentSource = sourceInfo.currentSourceProperty()
 

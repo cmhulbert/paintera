@@ -10,7 +10,6 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent.KEY_PRESSED
 import javafx.scene.input.KeyEvent.KEY_RELEASED
 import javafx.scene.input.MouseButton
-import javafx.scene.input.MouseEvent
 import javafx.scene.input.MouseEvent.MOUSE_CLICKED
 import javafx.scene.input.ScrollEvent
 import net.imglib2.type.numeric.IntegerType
@@ -99,15 +98,6 @@ class ShapeInterpolationMode<D : IntegerType<D>>(val controller: ShapeInterpolat
         activeViewerProperty.removeListener(toolTriggerListener)
     }
 
-    private inner class SelectWhenNotBusyListener(val mouseEvent: MouseEvent) : ChangeListener<Boolean> {
-        override fun changed(observable: ObservableValue<out Boolean>, oldValue: Boolean, newValue: Boolean) {
-            if (!newValue) {
-                controller.selectObject(mouseEvent.x, mouseEvent.y, true)
-                observable.removeListener(this);
-            }
-        }
-    }
-
     private fun getToolTriggerActions(): List<ActionSet> {
         return FXCollections.observableArrayList(
             PainteraActionSet(PaintActionType.Paint, "paint during shape interpolation") {
@@ -124,6 +114,7 @@ class ShapeInterpolationMode<D : IntegerType<D>>(val controller: ShapeInterpolat
                     keysReleased(KeyCode.SPACE)
                     onAction {
                         switchTool(shapeInterpolationToolProperty.get())
+                        controller.selectObject(paintera.mouseTracker.x, paintera.mouseTracker.y, false)
                     }
                 }
             }
@@ -138,7 +129,7 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
 
     private val baseView = paintera.baseView
 
-    private var inRestrictedNaviagation = false
+    private var inRestrictedNavigation = false
 
     override val actionSets: List<ActionSet> = mutableListOf(
         shapeInterpolationActions(keyCombinations),
@@ -185,9 +176,25 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
             TranslateWithinPlane(globalTransformManager, displayTransform(), globalToViewerTransform())
         }
         PainteraDragActionSet(NavigationActionType.Drag, "translate xy") {
-                verify { it.isSecondaryButtonDown }
-                handleDragDetected { translator.init() }
-                handleDrag { translator.translate(it.x - startX, it.y - startY) }
+            verify { it.isSecondaryButtonDown }
+            verify {
+                controller.run {
+                    (modeState == ModeState.Select)
+                        && ((!selectedObjects.isEmpty && numSections() < 2) || selectedObjects.isEmpty) // Either selecting the second, or editing
+                }
+            }
+            handleDragDetected {
+                if (!inRestrictedNavigation) {
+                    controller.apply {
+                        if (fixCurrentSelection()) {
+                            transitionToNextSelection()
+                        }
+                    }
+                    inRestrictedNavigation = true
+                }
+                translator.init()
+            }
+            handleDrag { translator.translate(it.x - startX, it.y - startY) }
         }
     }
 
@@ -200,20 +207,21 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                 ignoreKeys()
                 verify {
                     with(controller) {
-                        return@with !inRestrictedNaviagation // Not already navigating
+                        return@with !inRestrictedNavigation // Not already navigating
                             && (modeState == ModeState.Select) // in select mode
                             && ((!selectedObjects.isEmpty && numSections() < 2) || selectedObjects.isEmpty) // Either selecting the second, or editing
                     }
                 }
                 onAction {
                     with(controller) {
-                        fixCurrentSelection()
-                        transitionToNextSelection()
+                        if (fixCurrentSelection()) {
+                            transitionToNextSelection()
+                        }
                     }
-                    inRestrictedNaviagation = true
+                    inRestrictedNavigation = true
                     /* Bind the  NavigationTool properties required for navigation.
                      *  This is only half of the logic required to use NavigationTool in another tool.
-                     *  The other important step is to add the NavigationTool.actionSets to this tools actions
+                     *  The other important step is to add the NavigationTool.actionSets to this tool's actions
                      *
                      *  Note: We are still restricted by the ActionType permissions, as desired.  */
                     NavigationTool.activate()
@@ -238,8 +246,9 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                 KEY_PRESSED {
                     keyMatchesBinding(keyCombinations, SHAPE_INTERPOLATION_APPLY_MASK)
                     onAction {
-                        applyMask()
-                        baseView.changeMode(previousMode)
+                        if (applyMask()) {
+                            baseView.changeMode(previousMode)
+                        }
                     }
                     handleException {
                         baseView.changeMode(previousMode)
@@ -248,7 +257,6 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                 KEY_PRESSED {
                     keyMatchesBinding(keyCombinations, SHAPE_INTERPOLATION_APPLY_MASK_INPLACE)
                     onAction {
-                        applyMask(false)
                         val startWhenReady = object : ChangeListener<Boolean> {
                             override fun changed(observable: ObservableValue<out Boolean>, oldValue: Boolean, newValue: Boolean) {
                                 if (!newValue) {
@@ -259,7 +267,9 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                                 }
                             }
                         }
-                        source.isMaskInUseBinding.addListener(startWhenReady)
+                        if (applyMask(false)) {
+                            source.isMaskInUseBinding.addListener(startWhenReady)
+                        }
                     }
                     handleException {
                         baseView.changeMode(previousMode)
@@ -272,12 +282,12 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                 MOUSE_CLICKED {
                     name = "select object in current section"
 
-                    keysDown() //No keys can be down
+                    verifyNoKeysDown()
                     verify { !paintera.mouseTracker.isDragging }
                     verify { it.button == MouseButton.PRIMARY } // respond to primary click
                     verify { modeState == ModeState.Select } // need to be in the select state
                     onAction {
-                        inRestrictedNaviagation = false
+                        inRestrictedNavigation = false
                         selectObject(it.x, it.y, true)
                     }
                 }
@@ -291,7 +301,7 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
                         triggerByRightClick || triggerByCtrlLeftClick
                     }
                     onAction {
-                        inRestrictedNaviagation = false
+                        inRestrictedNavigation = false
                         selectObject(it.x, it.y, false)
                     }
                 }
@@ -304,11 +314,12 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
             keyMatchesBinding(keyCombinations, keyName)
             verify { idx() < controller.numSections() && idx() >= 0 }
             onAction {
-                inRestrictedNaviagation = false
+                inRestrictedNavigation = false
                 editSelection(idx())
             }
             handleException {
-                LOG.error("Error during shape interpolation edit selection ${idx() + 1}. Exiting Shape Interpolation.", it)
+
+            LOG.error("Error during shape interpolation edit selection ${idx() + 1}. Exiting Shape Interpolation.", it)
                 exitMode(false)
                 baseView.changeMode(previousMode)
             }

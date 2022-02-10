@@ -262,8 +262,8 @@ object NavigationTool : ViewerTool() {
             { globalTransformManager.setTransform(it) },
             globalTransformManager
         ).apply {
-            dragDetectedAction.keysDown()
-            dragAction.keysDown()
+            dragDetectedAction.verifyNoKeysDown()
+            dragAction.verifyNoKeysDown()
         }
 
     private fun getFastRotationMouseAction(displayTransform: AffineTransform3D, globalToViewerTransform: AffineTransform3D) =

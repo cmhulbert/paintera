@@ -78,9 +78,9 @@ public class LabelSourceStateIdSelectorHandler {
 
 	final var toggleLabelActions = new PainteraActionSet(LabelActionType.Toggle, "toggle single id", actionSet -> {
 	  final var selectMaxCount = selector.selectFragmentWithMaximumCountAction();
-	  selectMaxCount.keysDown();
+	  selectMaxCount.verifyNoKeysDown();
 	  selectMaxCount.verify(mouseEvent -> !Paintera.getPaintera().getMouseTracker().isDragging());
-	  selectMaxCount.verify(mouseEvent -> mouseEvent.getButton() == MouseButton.PRIMARY);
+	  selectMaxCount.verifyButtonTrigger(MouseButton.PRIMARY);
 	  actionSet.addAction(selectMaxCount);
 	});
 

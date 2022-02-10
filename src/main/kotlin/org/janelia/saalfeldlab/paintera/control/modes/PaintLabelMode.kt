@@ -78,24 +78,30 @@ object PaintLabelMode : AbstractToolMode() {
 
 
     val togglePaintBrush = PainteraActionSet(PaintActionType.Paint, "toggle paint tool") {
-        listOf(arrayOf(KeyCode.SPACE), arrayOf(KeyCode.SPACE, KeyCode.SHIFT)).map { keys ->
-            KEY_PRESSED(*keys) {
-                consume = false
-                verify { activeSourceStateProperty.get()?.dataSource is MaskedSource<*, *> }
-                verify { activeTool !is PaintBrushTool }
-                onAction { switchTool(paintBrushTool) }
+        KEY_PRESSED(KeyCode.SPACE) {
+            keysExclusive = false
+            consume = false
+            verify { activeSourceStateProperty.get()?.dataSource is MaskedSource<*, *> }
+            verify { activeTool !is PaintBrushTool }
+            onAction {
+                switchTool(paintBrushTool)
+                if (it.isShiftDown) {
+                    paintBrushTool.selectBackground()
+                } else {
+                    paintBrushTool.deselectBackground()
+                }
             }
-            KEY_PRESSED(*keys) {
-                /* swallow SPACE down events while painting*/
-                filter = true
-                consume = true
-                verify { activeTool is PaintBrushTool }
-            }
-            KEY_RELEASED {
-                keysReleased(*keys)
-                verify { activeTool is PaintBrushTool }
-                onAction { switchTool(NavigationTool) }
-            }
+        }
+        KEY_PRESSED(KeyCode.SPACE) {
+            /* swallow SPACE down events while painting*/
+            filter = true
+            consume = true
+            verify { activeTool is PaintBrushTool }
+        }
+        KEY_RELEASED {
+            keysReleased(KeyCode.SPACE)
+            verify { activeTool is PaintBrushTool }
+            onAction { switchTool(NavigationTool) }
         }
     }
 
@@ -211,8 +217,9 @@ object PaintLabelMode : AbstractToolMode() {
                                 maskedSource,
                                 ::refreshMeshes,
                                 selectedIds,
+                                idService,
                                 converter(),
-                                fragmentSegmentAssignment
+                                fragmentSegmentAssignment,
                             )
                         }
                     }
@@ -222,6 +229,7 @@ object PaintLabelMode : AbstractToolMode() {
                                 maskedSource,
                                 ::refreshMeshes,
                                 selectedIds(),
+                                idService(),
                                 converter(),
                                 assignment()
                             )

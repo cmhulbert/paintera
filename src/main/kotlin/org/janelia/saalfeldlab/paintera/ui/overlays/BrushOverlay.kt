@@ -93,8 +93,9 @@ class BrushOverlay(viewer: ViewerPanelFX) : CursorOverlayInViewer(viewer) {
                             strokeLine(x - scaledRadius, y - scaledRadius, x + scaledRadius, y + scaledRadius)
                             strokeLine(x - scaledRadius, y + scaledRadius, x + scaledRadius, y - scaledRadius)
                             reason?.let {
+                                fill = Color.WHITE.deriveColor(0.0, 0.0, 0.0, .75)
                                 font = Font.font(font.family, 20.0)
-                                fillText(it, x - scaledRadius, y - scaledRadius)
+                                fillText(it, x + 20, y + 10)
                             }
                         }
                     }

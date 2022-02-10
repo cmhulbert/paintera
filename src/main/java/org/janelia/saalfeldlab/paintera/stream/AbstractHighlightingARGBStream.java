@@ -13,20 +13,19 @@
  */
 package org.janelia.saalfeldlab.paintera.stream;
 
-import java.lang.invoke.MethodHandles;
-
-import org.janelia.saalfeldlab.fx.ObservableWithListenersList;
-import org.janelia.saalfeldlab.paintera.control.lock.LockedSegments;
-import org.janelia.saalfeldlab.paintera.control.selection.SelectedSegments;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import gnu.trove.impl.Constants;
 import gnu.trove.map.TLongIntMap;
 import gnu.trove.map.hash.TLongIntHashMap;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import net.imglib2.type.label.Label;
+import org.janelia.saalfeldlab.fx.ObservableWithListenersList;
+import org.janelia.saalfeldlab.paintera.control.lock.LockedSegments;
+import org.janelia.saalfeldlab.paintera.control.selection.SelectedSegments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.invoke.MethodHandles;
 
 /**
  * Generates and caches a stream of colors.
@@ -87,18 +86,6 @@ public abstract class AbstractHighlightingARGBStream extends ObservableWithListe
 		  Label.TRANSPARENT,
 		  0
   );
-
-  //	public void highlight( final TLongHashSet highlights )
-  //	{
-  //		this.highlights.clear();
-  //		this.highlights.addAll( highlights );
-  //	}
-  //
-  //	public void highlight( final long[] highlights )
-  //	{
-  //		this.highlights.clear();
-  //		this.highlights.addAll( highlights );
-  //	}
 
   public boolean isActiveFragment(final long id) {
 

@@ -58,8 +58,10 @@ import org.janelia.saalfeldlab.paintera.data.mask.Mask;
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo;
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource;
 import org.janelia.saalfeldlab.paintera.data.mask.exception.MaskInUse;
+import org.janelia.saalfeldlab.paintera.id.IdService;
 import org.janelia.saalfeldlab.paintera.stream.HighlightingStreamConverter;
 import org.janelia.saalfeldlab.paintera.viewer3d.Viewer3DFX;
+import org.janelia.saalfeldlab.util.Colors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,13 +149,15 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
   private final Runnable refreshMeshes;
 
   public final SelectedIds selectedIds;
+  public final IdService idService;
 
-  private HighlightingStreamConverter<?> converter;
+  private final HighlightingStreamConverter<?> converter;
   private final FragmentSegmentAssignment assignment;
 
   private ViewerPanelFX activeViewer;
   public long lastSelectedId;
   public long[] lastActiveIds;
+  private long selectionId;
 
   private final ChangeListener<Boolean> doneApplyingMaskListener;
   private Mask<UnsignedLongType> mask;
@@ -174,12 +178,14 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 		  final MaskedSource<D, ?> source,
 		  final Runnable refreshMeshes,
 		  final SelectedIds selectedIds,
+		  final IdService idService,
 		  final HighlightingStreamConverter<?> converter,
 		  final FragmentSegmentAssignment assignment) {
 
 	this.source = source;
 	this.refreshMeshes = refreshMeshes;
 	this.selectedIds = selectedIds;
+	this.idService = idService;
 	this.converter = converter;
 	this.assignment = assignment;
 
@@ -239,8 +245,14 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	activeViewer = viewer;
 	disableUnfocusedViewers();
 
+	/* Store all the previous activated Ids*/
 	lastSelectedId = selectedIds.getLastSelection();
+	if (lastSelectedId == Label.INVALID)
+	  lastSelectedId = idService.next();
+
 	lastActiveIds = selectedIds.getActiveIdsCopyAsArray();
+
+	selectNewInterpolationId();
 
 	activeSectionProperty.set(0);
 	modeState.set(ModeState.Select);
@@ -261,7 +273,11 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	  resetMask();
 	}
 
-	selectedIds.activate(lastActiveIds);
+
+	/* Reset the selection state */
+	converter.removeColor(lastSelectedId);
+	converter.removeColor(selectionId);
+	selectedIds.deactivate(selectionId);
 	selectedIds.activateAlso(lastSelectedId);
 
 	currentFillValue = 0;
@@ -275,6 +291,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	onInterpolationFinished = null;
 	interpolatedMaskImgs = null;
 	lastSelectedId = Label.INVALID;
+	selectionId = Label.INVALID;
 	lastActiveIds = null;
 
 	paintera().orthogonalViews().requestRepaint();
@@ -294,7 +311,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
   private void createMask() throws MaskInUse {
 
 	final int time = activeViewer.getState().getTimepoint();
-	final MaskInfo<UnsignedLongType> maskInfo = new MaskInfo<>(time, MASK_SCALE_LEVEL, new UnsignedLongType(lastSelectedId));
+	final MaskInfo<UnsignedLongType> maskInfo = new MaskInfo<>(time, MASK_SCALE_LEVEL, new UnsignedLongType(selectionId));
 	mask = source.generateMask(maskInfo, FOREGROUND_CHECK);
   }
 
@@ -320,14 +337,15 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	orthoViews.views().forEach(orthoViews::enableView);
   }
 
-  public void fixCurrentSelection() {
+  public boolean fixCurrentSelection() {
 
 	LOG.trace("Fix selection");
 	if (sections.size() >= 2 || selectedObjects.isEmpty()) {
-	  return;
+	  return false;
 	}
 	sections.add(createSectionInfoForSelection());
 	selectedObjects.clear();
+	return true;
   }
 
   public void transitionToNextSelection() {
@@ -402,13 +420,12 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 
   }
 
+  public boolean applyMask() {
 
-
-  public void applyMask() {
-	applyMask(true);
+	return applyMask(true);
   }
 
-  public void applyMask(boolean exit) {
+  public boolean applyMask(boolean exit) {
 
 	if (modeState.get() == ModeState.Select) {
 	  if (activeSectionProperty.get() >= sections.size()) {
@@ -416,7 +433,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	  }
 
 	  if (sections.size() < 2) {
-		return;
+		return false;
 	  }
 
 	  interpolateAllSections();
@@ -446,7 +463,27 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	  );
 	  resetMask();
 	  try {
-		source.setMask(maskInfoWithLastSelectedLabelId, interpolatedMaskImgs.getA(), interpolatedMaskImgs.getB(), null, null, null, FOREGROUND_CHECK);
+		final RealRandomAccessible<UnsignedLongType> interpolatedMaskImgsA = Converters.convert(
+				interpolatedMaskImgs.getA(),
+				(in, out) -> {
+				  long originalLabel = in.getLong();
+				  out.set(originalLabel == selectionId ? lastSelectedId : in.get());
+				},
+				new UnsignedLongType()
+		);
+		final RealRandomAccessible<VolatileUnsignedLongType> interpolatedMaskImgsB = Converters.convert(
+				interpolatedMaskImgs.getB(),
+				(in, out) -> {
+				  final boolean isValid = in.isValid();
+				  out.setValid(isValid);
+				  if (isValid) {
+					long originalLabel = in.get().get();
+					out.get().set(originalLabel == selectionId ? lastSelectedId : originalLabel);
+				  }
+				},
+				new VolatileUnsignedLongType()
+		);
+		source.setMask(maskInfoWithLastSelectedLabelId, interpolatedMaskImgsA, interpolatedMaskImgsB, null, null, null, FOREGROUND_CHECK);
 	  } catch (final MaskInUse e) {
 		e.printStackTrace();
 	  }
@@ -458,6 +495,21 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	if (exit) {
 	  exitMode(true);
 	}
+	return true;
+  }
+
+  private void selectNewInterpolationId() {
+	/* Grab the color of the previously active ID. We will make our selection ID color slightly different, to indicate selection. */
+	var packedLastARGB = converter.getStream().argb(lastSelectedId);
+	Color originalColor = Colors.toColor(packedLastARGB);
+	Color desaturatedColor = originalColor.deriveColor(0.0, .8, .8, 1.0);
+	selectionId = idService.next();
+	/* Since the color is fully saturated, we first desaturate the original color, and then set the interpolationID color to the original.
+	 * This offer decent distinction when selecting a region to interpolate against, while still keeping the color related to the original label's color. */
+	converter.setColor(lastSelectedId, desaturatedColor);
+	converter.setColor(selectionId, originalColor);
+
+	selectedIds.activateAlso(lastSelectedId, selectionId);
   }
 
   private void doneApplyingMask() {
@@ -767,8 +819,6 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	final double fillDepth = determineFillDepth();
 	LOG.debug("Flood-filling to select object: fill value={}, depth={}", fillValue, fillDepth);
 	final Interval affectedInterval = FloodFill2D.fillMaskAt(x, y, activeViewer, mask, source, assignment, fillValue, fillDepth);
-	selectedIds.activateAlso(fillValue);
-	converter.setColor(fillValue, MASK_COLOR);
 	return new ValuePair<>(fillValue, affectedInterval);
   }
 

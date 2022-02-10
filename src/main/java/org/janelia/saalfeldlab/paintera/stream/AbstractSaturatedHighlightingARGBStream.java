@@ -13,10 +13,9 @@
  */
 package org.janelia.saalfeldlab.paintera.stream;
 
+import net.imglib2.type.label.Label;
 import org.janelia.saalfeldlab.paintera.control.lock.LockedSegments;
 import org.janelia.saalfeldlab.paintera.control.selection.SelectedSegments;
-
-import net.imglib2.type.label.Label;
 
 /**
  * Generates and caches a stream of saturated colors. Colors are picked from a
