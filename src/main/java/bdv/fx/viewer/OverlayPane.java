@@ -69,8 +69,6 @@ public class OverlayPane<A> extends StackPane {
 
   private final ObservableList<Node> children = FXCollections.unmodifiableObservableList(super.getChildren());
 
-  //	private final Canvas canvas;
-
   /**
    *
    */

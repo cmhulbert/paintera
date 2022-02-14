@@ -109,6 +109,7 @@ class PaintClickOrDragController(
     private var isPainting = false
 
     private var mask: Mask<UnsignedLongType>? = null
+
     private var paintIntoThis: MaskedSource<*, *>? = null
     private var fillLabel: Long = 0
     private var interval: Interval? = null

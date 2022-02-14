@@ -43,17 +43,21 @@ class HighlightingStreamConverterConfigNode(private val converter: HighlightingS
     private val activeSegmentAlphaInt = converter.activeSegmentAlphaProperty()
 
     init {
+        /* bind the label alpha */
         alpha.addListener { _, _, new -> alphaInt.set(toIntegerBased(new.toDouble())) }
-        activeFragmentAlpha.addListener { _, _, new -> activeFragmentAlphaInt.set(toIntegerBased(new.toDouble())) }
-        activeSegmentAlpha.addListener { _, _, newv -> activeSegmentAlphaInt.set(toIntegerBased(newv.toDouble())) }
-
         alphaInt.addListener { obs, oldv, newv -> alpha.set(toDoubleBased(newv.toInt())) }
-        activeFragmentAlphaInt.addListener { _, _, new -> activeFragmentAlpha.set(toDoubleBased(new.toInt())) }
-        activeSegmentAlphaInt.addListener { _, _, new -> activeSegmentAlpha.set(toDoubleBased(new.toInt())) }
-
         alpha.value = toDoubleBased(alphaInt.value)
+
+        /* bidn the active fragment alpha */
+        activeFragmentAlpha.addListener { _, _, new -> activeFragmentAlphaInt.set(toIntegerBased(new.toDouble())) }
+        activeFragmentAlphaInt.addListener { _, _, new -> activeFragmentAlpha.set(toDoubleBased(new.toInt())) }
         activeFragmentAlpha.value = toDoubleBased(activeFragmentAlphaInt.value)
+
+        /* bind the active segment alpha */
+        activeSegmentAlpha.addListener { _, _, newv -> activeSegmentAlphaInt.set(toIntegerBased(newv.toDouble())) }
+        activeSegmentAlphaInt.addListener { _, _, new -> activeSegmentAlpha.set(toDoubleBased(new.toInt())) }
         activeSegmentAlpha.value = toDoubleBased(activeSegmentAlphaInt.value)
+
     }
 
     val node: Node
@@ -136,7 +140,7 @@ class HighlightingStreamConverterConfigNode(private val converter: HighlightingS
                 colorContents.hgap = 5.0
                 val colorPane = TitledPane("Custom Colors", colorContents).also { it.isExpanded = false }
                 val colorsChanged = MapChangeListener<Long, Color> { change ->
-                    InvokeOnJavaFXApplicationThread.invoke {
+                    InvokeOnJavaFXApplicationThread {
                         var gridRow = 0
                         colorContents.children.clear()
                         val it = colorsMap.entries.iterator()
@@ -217,10 +221,10 @@ class HighlightingStreamConverterConfigNode(private val converter: HighlightingS
 
         private const val COLOR_CONVERSION_DESCRIPTION = "" +
             "Label data is converted into RGB space by assigning pseudo-randomly distributed, " +
-            "fully saturated colors to label ids. Different alpha (opacity) values can be configured for " +
-            "(1) regular labels, " +
-            "(2) selected fragments, and " +
-            "(3) fragments that are not selected but are contained in the same segment as any selected fragment."
+            "fully saturated colors to label ids. Different alpha (opacity) values can be configured for:\n" +
+            "\t(1) regular labels\n " +
+            "\t(2) selected fragments\n" +
+            "\t(3) unselected fragments in selected segments"
 
         private fun toIntegerBased(opacity: Double): Int {
             return (255 * opacity + 0.5).toInt()

@@ -148,13 +148,9 @@ public class FloodFill2D<T extends IntegerType<T>> {
 		  final long fillValue,
 		  final double fillDepth) {
 
-	final int time = mask.info.t;
-	final int level = mask.info.level;
+	final AffineTransform3D labelTransform = source.getSourceTransformForMask(mask.info);
+	final RandomAccessibleInterval<T> background = source.getDataSourceForMask(mask.info);
 
-	final AffineTransform3D labelTransform = new AffineTransform3D();
-	source.getSourceTransform(time, level, labelTransform);
-
-	final RandomAccessibleInterval<T> background = source.getDataSource(time, level);
 	final RandomAccess<T> access = background.randomAccess();
 	final RealPoint pos = new RealPoint(access.numDimensions());
 	viewer.displayToSourceCoordinates(x, y, labelTransform, pos);

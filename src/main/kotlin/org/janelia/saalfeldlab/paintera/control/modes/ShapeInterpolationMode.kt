@@ -114,6 +114,7 @@ class ShapeInterpolationMode<D : IntegerType<D>>(val controller: ShapeInterpolat
                     keysReleased(KeyCode.SPACE)
                     onAction {
                         switchTool(shapeInterpolationToolProperty.get())
+
                         controller.selectObject(paintera.mouseTracker.x, paintera.mouseTracker.y, false)
                     }
                 }
@@ -139,6 +140,13 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
 
     override fun activate() {
         super.activate()
+        /* set the converter fragment alpha to be the same as the segment. We do this so we can use the fragment alpha for the
+        * selected objects during shape interpolation flood fill. This needs to be un-done in the #deactivate */
+        controller.converter.activeFragmentAlphaProperty().apply {
+            controller.activeSelectionAlpha = get() / 255
+            set(controller.converter.activeSegmentAlphaProperty().get())
+        }
+        inRestrictedNavigation = false
         /* This action set allows us to translate through the unfocused viewers */
         paintera.baseView.orthogonalViews().viewerAndTransforms()
             .filter { !it.viewer().isFocusable }
@@ -151,6 +159,10 @@ class ShapeInterpolationTool(val controller: ShapeInterpolationController<*>, ke
     }
 
     override fun deactivate() {
+        /* Add the activeFragmentAlpha back when we are done */
+        controller.apply {
+            converter.activeFragmentAlphaProperty().set(activeSelectionAlpha)
+        }
         disabledViewerTranslateOnlyMap.forEach { (vat, actionSet) -> vat.viewer().removeActionSet(actionSet) }
         disabledViewerTranslateOnlyMap.clear()
         super.deactivate()

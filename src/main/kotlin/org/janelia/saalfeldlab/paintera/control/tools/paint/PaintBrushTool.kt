@@ -167,9 +167,11 @@ class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<SourceState
 
             /* Handle Common Mouse Move/Drag Actions*/
             MOUSE_DRAGGED {
+                verify { isLabelValid }
                 onAction { paintClickOrDrag?.extendPaint(it) }
             }
             MOUSE_MOVED {
+                verify { isLabelValid }
                 onAction { paintClickOrDrag?.extendPaint(it) }
             }
 

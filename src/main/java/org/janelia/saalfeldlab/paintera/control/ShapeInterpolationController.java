@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.function.Predicate;
 
 import static java.util.function.Predicate.not;
+import static org.janelia.saalfeldlab.paintera.stream.AbstractHighlightingARGBStream.DEFAULT_ACTIVE_FRAGMENT_ALPHA;
 
 public class ShapeInterpolationController<D extends IntegerType<D>> {
 
@@ -151,7 +152,8 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
   public final SelectedIds selectedIds;
   public final IdService idService;
 
-  private final HighlightingStreamConverter<?> converter;
+  public final HighlightingStreamConverter<?> converter;
+  public int activeSelectionAlpha = DEFAULT_ACTIVE_FRAGMENT_ALPHA >>> 24;
   private final FragmentSegmentAssignment assignment;
 
   private ViewerPanelFX activeViewer;
@@ -174,6 +176,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 
   private Runnable onInterpolationFinished;
   private Pair<RealRandomAccessible<UnsignedLongType>, RealRandomAccessible<VolatileUnsignedLongType>> interpolatedMaskImgs;
+
   public ShapeInterpolationController(
 		  final MaskedSource<D, ?> source,
 		  final Runnable refreshMeshes,
@@ -226,10 +229,12 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
   }
 
   public void restartFromLastSection() {
+
 	restartFromSection(sections.get(sections.size() - 1));
   }
 
   public void restartFromSection(SectionInfo section) {
+
 	sections.clear();
 	selectAndMoveToSection(section);
 	activeSectionProperty.set(0);
@@ -246,7 +251,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	disableUnfocusedViewers();
 
 	/* Store all the previous activated Ids*/
-	lastSelectedId = selectedIds.getLastSelection();
+	lastSelectedId = assignment.getSegment(selectedIds.getLastSelection());
 	if (lastSelectedId == Label.INVALID)
 	  lastSelectedId = idService.next();
 
@@ -386,6 +391,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
   }
 
   public void editSelection(final int idx) {
+
 	interruptInterpolation();
 
 	if (activeSectionProperty.get() == idx)
@@ -502,12 +508,9 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	/* Grab the color of the previously active ID. We will make our selection ID color slightly different, to indicate selection. */
 	var packedLastARGB = converter.getStream().argb(lastSelectedId);
 	Color originalColor = Colors.toColor(packedLastARGB);
-	Color desaturatedColor = originalColor.deriveColor(0.0, .8, .8, 1.0);
-	selectionId = idService.next();
-	/* Since the color is fully saturated, we first desaturate the original color, and then set the interpolationID color to the original.
-	 * This offer decent distinction when selecting a region to interpolate against, while still keeping the color related to the original label's color. */
-	converter.setColor(lastSelectedId, desaturatedColor);
-	converter.setColor(selectionId, originalColor);
+	Color fillLabelColor = new Color(originalColor.getRed(), originalColor.getGreen(), originalColor.getBlue(), activeSelectionAlpha);
+	selectionId = idService.nextTemporary();
+	converter.setColor(selectionId, fillLabelColor);
 
 	selectedIds.activateAlso(lastSelectedId, selectionId);
   }
@@ -748,14 +751,7 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 
   public void selectObject(final double x, final double y, final boolean deactivateOthers) {
 	// create the mask if needed
-	if (mask == null) {
-	  LOG.debug("No selected objects yet, create mask");
-	  try {
-		createMask();
-	  } catch (final MaskInUse e) {
-		e.printStackTrace();
-	  }
-	}
+	getOrCreateMask();
 
 	final UnsignedLongType maskValue = getMaskValue(x, y);
 	if (maskValue.get() == Label.OUTSIDE)
@@ -804,6 +800,19 @@ public class ShapeInterpolationController<D extends IntegerType<D>> {
 	}
 
 	paintera().orthogonalViews().requestRepaint();
+  }
+
+  public Mask<UnsignedLongType> getOrCreateMask() {
+
+	if (mask == null) {
+	  LOG.debug("No selected objects yet, create mask");
+	  try {
+		createMask();
+	  } catch (final MaskInUse e) {
+		e.printStackTrace();
+	  }
+	}
+	return mask;
   }
 
   /**

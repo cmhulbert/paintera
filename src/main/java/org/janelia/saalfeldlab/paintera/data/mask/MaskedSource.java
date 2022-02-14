@@ -797,6 +797,18 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 	source.getSourceTransform(t, level, transform);
   }
 
+  public void getSourceTransform(MaskInfo<?> maskInfo, final AffineTransform3D transform) {
+
+	getSourceTransform(maskInfo.t, maskInfo.level, transform);
+  }
+
+  public AffineTransform3D getSourceTransformForMask(MaskInfo<?> maskInfo) {
+
+	final var transform = new AffineTransform3D();
+	getSourceTransform(maskInfo.t, maskInfo.level, transform);
+	return transform;
+  }
+
   @Override
   public T getType() {
 
@@ -827,6 +839,11 @@ public class MaskedSource<D extends Type<D>, T extends Type<T>> implements DataS
 
 	final RealRandomAccessible<D> interpolatedDataSource = getInterpolatedDataSource(t, level, null);
 	return Views.interval(Views.raster(interpolatedDataSource), new FinalInterval(source.getDataSource(t, level)));
+  }
+
+  public RandomAccessibleInterval<D> getDataSourceForMask(MaskInfo<?> maskInfo) {
+
+	return getDataSource(maskInfo.t, maskInfo.level);
   }
 
   @Override

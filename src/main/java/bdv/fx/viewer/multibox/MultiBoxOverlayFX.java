@@ -276,17 +276,16 @@ public class MultiBoxOverlayFX {
 	}
 	graphics.setFill(canvasColor);
 	addPath(graphics, canvas, graphics::fill);
-	// graphics.fill( canvas );
+
 	graphics.setStroke(inactiveFrontColor);
 	addPath(graphics, inactiveFront, graphics::stroke);
-	// graphics.draw( inactiveFront );
+
 	graphics.setStroke(activeFrontColor);
 	addPath(graphics, activeFront, graphics::stroke);
-	// graphics.draw( activeFront );
+
 	if (highlight) {
 	  graphics.setStroke(highlightFrontColor);
 	  addPath(graphics, highlightFront, graphics::stroke);
-	  // graphics.draw( highlightFront );
 	}
 
 	final IntervalAndTransform source = sources.get(0);
