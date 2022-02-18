@@ -50,19 +50,22 @@ public class OrthoViewCoordinateDisplayListener {
   public void addHandlers(ViewerPanelFX viewer) {
 
 	if (!this.listeners.containsKey(viewer)) {
-	  final CoordinateDisplayListener coordinateListener =
-			  new CoordinateDisplayListener(viewer, submitViewerCoordinate, submitWorldCoordinate);
+	  final CoordinateDisplayListener coordinateListener = new CoordinateDisplayListener(viewer, submitViewerCoordinate, submitWorldCoordinate);
 	  listeners.put(viewer, EventFX.MOUSE_MOVED("coordinate update", e -> coordinateListener.update(e.getX(), e.getY())));
-	  final TransformListener<AffineTransform3D> transformListener = transform -> {
-		final double[] mouseCoordinates = new double[]{viewer.getMouseXProperty().get(), viewer.getMouseYProperty().get(), 0.0};
-		submitViewerCoordinate.accept(new RealPoint(mouseCoordinates));
-		viewer.displayToGlobalCoordinates(mouseCoordinates);
-		submitWorldCoordinate.accept(new RealPoint(mouseCoordinates));
-	  };
-	  this.transformListeners.put(viewer, transformListener);
+	  this.transformListeners.put(viewer, getTransformListener(viewer));
 	}
 	listeners.get(viewer).installInto(viewer);
 	viewer.addTransformListener(transformListeners.get(viewer));
+  }
+
+  private TransformListener<AffineTransform3D> getTransformListener(ViewerPanelFX viewer) {
+
+	return transform -> {
+	  final double[] mouseCoordinates = new double[]{viewer.getMouseXProperty().get(), viewer.getMouseYProperty().get(), 0.0};
+	  submitViewerCoordinate.accept(new RealPoint(mouseCoordinates));
+	  viewer.displayToGlobalCoordinates(mouseCoordinates);
+	  submitWorldCoordinate.accept(new RealPoint(mouseCoordinates));
+	};
   }
 
   public void removeHandlers(ViewerPanelFX viewer) {

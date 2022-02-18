@@ -15,13 +15,13 @@ object ViewLabelMode : AbstractToolMode() {
 
     override val toolBarTools: ObservableList<Tool> = FXCollections.observableArrayList()
 
-    override val toolTriggers: List<ActionSet> = listOf()
+    override val modeActions: List<ActionSet> = listOf()
 
     override val allowedActions = AllowedActions.VIEW_LABELS
 
     private val moveToolTriggersToActiveViewer = ChangeListener<OrthogonalViews.ViewerAndTransforms?> { _, old, new ->
         /* remove the tool triggers from old, add to new */
-        toolTriggers.forEach { actionSet ->
+        modeActions.forEach { actionSet ->
             old?.viewer()?.removeActionSet(actionSet)
             new?.viewer()?.installActionSet(actionSet)
         }

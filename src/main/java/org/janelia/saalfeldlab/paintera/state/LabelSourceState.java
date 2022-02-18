@@ -155,6 +155,11 @@ public class LabelSourceState<D extends IntegerType<D>, T extends Volatile<D> & 
 	return idSelectorHandler.nextId(false);
   }
 
+  public long nextId(Boolean activate) {
+
+	return idSelectorHandler.nextId(activate);
+  }
+
   public void setFloodFillState(FloodFillState floodFillState) {
 
 	this.floodFillState.setValue(floodFillState);

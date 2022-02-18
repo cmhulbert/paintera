@@ -20,7 +20,6 @@ import org.janelia.saalfeldlab.paintera.control.IdSelector;
 import org.janelia.saalfeldlab.paintera.control.actions.LabelActionType;
 import org.janelia.saalfeldlab.paintera.control.assignment.FragmentSegmentAssignment;
 import org.janelia.saalfeldlab.paintera.control.lock.LockedSegments;
-import org.janelia.saalfeldlab.paintera.control.paint.SelectNextId;
 import org.janelia.saalfeldlab.paintera.control.selection.SelectedIds;
 import org.janelia.saalfeldlab.paintera.data.DataSource;
 import org.janelia.saalfeldlab.paintera.id.IdService;
@@ -56,8 +55,6 @@ public class LabelSourceStateIdSelectorHandler {
 
   private Task<?> selectAllTask;
 
-  private SelectNextId nextId;
-
   public LabelSourceStateIdSelectorHandler(
 		  final DataSource<? extends IntegerType<?>, ?> source,
 		  final IdService idService,
@@ -78,7 +75,7 @@ public class LabelSourceStateIdSelectorHandler {
 
 	final var toggleLabelActions = new PainteraActionSet(LabelActionType.Toggle, "toggle single id", actionSet -> {
 	  final var selectMaxCount = selector.selectFragmentWithMaximumCountAction();
-	  selectMaxCount.verifyNoKeysDown();
+	  selectMaxCount.verify(event -> keyTracker.areOnlyTheseKeysDown(KeyCode.ALT) || keyTracker.noKeysActive());
 	  selectMaxCount.verify(mouseEvent -> !Paintera.getPaintera().getMouseTracker().isDragging());
 	  selectMaxCount.verifyButtonTrigger(MouseButton.PRIMARY);
 	  actionSet.addAction(selectMaxCount);
@@ -140,15 +137,14 @@ public class LabelSourceStateIdSelectorHandler {
 	  });
 	});
 
-	nextId = new SelectNextId(idService, selectedIds);
-	final var createNewActions = new PainteraActionSet(LabelActionType.CreateNew, "Create New Segment", actionSet -> {
-	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
-		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.NEXT_ID);
-		keyAction.onAction(keyEvent -> nextId.getNextId());
-	  });
-	});
+	//	final var createNewActions = new PainteraActionSet(LabelActionType.CreateNew, "Create New Segment", actionSet -> {
+	//	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
+	//		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.NEXT_ID);
+	//		keyAction.onAction(keyEvent -> nextId());
+	//	  });
+	//	});
 
-	return List.of(toggleLabelActions, appendLabelActions, selectAllActions, lockSegmentActions, createNewActions);
+	return List.of(toggleLabelActions, appendLabelActions, selectAllActions, lockSegmentActions); //, createNewActions);
   }
 
   public long nextId() {
@@ -158,12 +154,10 @@ public class LabelSourceStateIdSelectorHandler {
 
   public long nextId(boolean activate) {
 
+	final long next = idService.next();
 	if (activate) {
-	  return nextId.getNextId();
-	} else {
-	  /* No-op with the id. */
-	  return nextId.getNextId((ids, id) -> {
-	  });
+	  selectedIds.activate(next);
 	}
+	return next;
   }
 }

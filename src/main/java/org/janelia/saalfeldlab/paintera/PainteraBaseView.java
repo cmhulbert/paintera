@@ -5,13 +5,18 @@ import bdv.viewer.Interpolation;
 import bdv.viewer.SourceAndConverter;
 import bdv.viewer.ViewerOptions;
 import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.binding.BooleanExpression;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.MapChangeListener;
 import javafx.collections.ObservableList;
+import javafx.collections.ObservableMap;
 import javafx.scene.layout.Pane;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.Volatile;
@@ -116,6 +121,8 @@ public class PainteraBaseView {
 
   private final SimpleObjectProperty<ControlMode> activeModeProperty = new SimpleObjectProperty<>();
 
+  public final ObservableMap<Object, BooleanBinding> disabledPropertyBindings = FXCollections.observableHashMap();
+
   /**
    * delegates to {@link #PainteraBaseView(int, ViewerOptions, KeyAndMouseConfig) {@code PainteraBaseView(numFetcherThreads, ViewerOptions.options())}}
    */
@@ -146,7 +153,7 @@ public class PainteraBaseView {
 			this.sharedQueue,
 			this.viewerOptions,
 			viewer3D,
-			s -> Optional.ofNullable(sourceInfo.getState(s)).map(SourceState::interpolationProperty).map(ObjectProperty::get).orElse(Interpolation.NLINEAR));
+			source -> Optional.ofNullable(sourceInfo.getState(source)).map(SourceState::interpolationProperty).map(ObjectProperty::get).orElse(Interpolation.NLINEAR));
 
 	activeModeProperty.addListener((obs, oldv, newv) -> {
 	  if (oldv != newv) {
@@ -155,6 +162,16 @@ public class PainteraBaseView {
 		if (newv != null)
 		  newv.enter();
 	  }
+	});
+
+	disabledPropertyBindings.addListener((MapChangeListener<Object, BooleanBinding>)change -> {
+	  isDisabledProperty.unbind();
+
+	  final var isDisableBinding = disabledPropertyBindings.values().stream()
+			  .reduce(BooleanExpression::and)
+			  .orElseGet(() -> Bindings.createBooleanBinding(() -> false));
+
+	  isDisabledProperty.bind(isDisableBinding);
 	});
 
 	activeModeProperty.set(AppControlMode.INSTANCE);

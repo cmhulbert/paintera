@@ -28,7 +28,7 @@ public class Masks {
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public static <D, T> DataSource<D, T> mask(
+  public static <D, T> DataSource<D, T> maskedSource(
 		  final DataSource<D, T> source,
 		  final SharedQueue queue,
 		  final String initialCanvasPath,

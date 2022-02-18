@@ -21,6 +21,7 @@ import javafx.scene.paint.Color
 import javafx.scene.shape.Rectangle
 import javafx.stage.Modality
 import net.imglib2.Interval
+import net.imglib2.RealInterval
 import net.imglib2.Volatile
 import net.imglib2.converter.Converter
 import net.imglib2.realtransform.AffineTransform3D
@@ -125,6 +126,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     private val converter = HighlightingStreamConverter.forType(stream, dataSource.type)
 
+
     override fun converter(): HighlightingStreamConverter<T> = converter
     val meshManager = MeshManagerWithAssignmentForSegments.fromBlockLookup(
         source,
@@ -171,7 +173,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     override fun compositeProperty(): ObjectProperty<Composite<ARGBType, ARGBType>> = _composite
 
-    fun nextId() = idSelectorHandler.nextId(false)
+    fun nextId(activate: Boolean = false) = idSelectorHandler.nextId(activate)
 
     // source name
     private val _name = SimpleStringProperty(name)
@@ -197,6 +199,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     // flood fill state
     internal val floodFillState = SimpleObjectProperty<FloodFillState>()
+
+    //Brush properties
+    internal val brushProperties = BrushProperties()
 
     // display status
     private val displayStatus: HBox = createDisplayStatus(dataSource, floodFillState, selectedIds, fragmentSegmentAssignment, stream)
@@ -248,9 +253,13 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
     override fun getGlobalActionSets(): List<ActionSet> = globalActions
 
 
-    private fun requestRepaint(paintera: PainteraBaseView) {
+    private fun requestRepaint(paintera: PainteraBaseView, interval: RealInterval? = null) {
         if (isVisible && Paintera.paintable) {
-            paintera.orthogonalViews().requestRepaint()
+            interval?.let {
+                paintera.orthogonalViews().requestRepaint(it)
+            } ?: let {
+                paintera.orthogonalViews().requestRepaint()
+            }
         }
     }
 
@@ -329,7 +338,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
             converter(),
             meshManager,
             meshManager.managedSettings,
-            null
+            brushProperties
         ).node.let { if (it is VBox) it else VBox(it) }
 
         val backendMeta = backend.createMetaDataNode()
@@ -484,13 +493,10 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
         @JvmStatic
         fun checkForLabelMultisetType(fragmentsInSelectedSegments: FragmentsInSelectedSegments): Predicate<LabelMultisetType> {
+
             return Predicate { lmt ->
-                lmt.entrySet().forEach {
-                    if (fragmentsInSelectedSegments.contains(it.element.id())) {
-                        return@Predicate true
-                    }
-                }
-                return@Predicate false
+
+                lmt.entrySet().any { fragmentsInSelectedSegments.contains(it.element.id()) }
             }
         }
 
@@ -653,11 +659,10 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
                             labelBlockLookup
                         )
                         return state.apply {
-
                             get<Long>(LAST_SELECTION) { selectedIds.activateAlso(it) }
                             get<JsonObject>(CONVERTER) { converter ->
                                 converter.apply {
-                                    get<JsonObject>(CONVERTER_USER_SPECIFIED_COLORS) { toColorMap().forEach { (id, c) -> state.converter.setColor(id, c) } }
+                                    get<JsonObject>(CONVERTER_USER_SPECIFIED_COLORS) { it.toColorMap().forEach { (id, c) -> state.converter.setColor(id, c) } }
                                     get<Long>(CONVERTER_SEED) { seed -> state.converter.seedProperty().set(seed) }
                                 }
                             }
@@ -677,7 +682,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
         }
 
         companion object {
-            private fun JsonObject.toColorMap() = this.keySet().map { Pair(it.toLong(), Color.web(this[it].asString)) }
+            private fun JsonObject.toColorMap() = this.keySet().map {
+                Pair(it.toLong(), Color.web(this[it].asString))
+            }
         }
 
     }

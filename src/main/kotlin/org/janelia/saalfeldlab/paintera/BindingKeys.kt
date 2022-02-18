@@ -7,16 +7,14 @@ import javafx.scene.input.KeyCombination.*
 import org.janelia.saalfeldlab.fx.actions.NamedKeyCombination
 
 private infix fun String.byKeyCombo(keyCode: KeyCode) = NamedKeyCombination(this, KeyCodeCombination(keyCode))
-
 private infix fun String.byKeyCombo(combo: KeyCodeCombination) = NamedKeyCombination(this, combo)
-private operator fun KeyCode.plus(modifiers: ArrayList<Modifier>) = KeyCodeCombination(this, *modifiers.toTypedArray())
 
 private operator fun ArrayList<Modifier>.plus(keyCode: KeyCode) = KeyCodeCombination(keyCode, *this.toTypedArray())
+private operator fun ArrayList<Modifier>.plus(modifier: Modifier) = this.apply { add(modifier) }
+private operator fun KeyCode.plus(modifiers: ArrayList<Modifier>) = KeyCodeCombination(this, *modifiers.toTypedArray())
 private operator fun KeyCode.plus(modifier: Modifier) = KeyCodeCombination(this, modifier)
-
 private operator fun Modifier.plus(keyCode: KeyCode) = KeyCodeCombination(keyCode, this)
 private operator fun Modifier.plus(modifier: Modifier) = arrayListOf(this, modifier)
-private operator fun ArrayList<Modifier>.plus(modifier: Modifier) = this.apply { add(modifier) }
 
 
 private operator fun Modifier.plus(modifiers: ArrayList<Modifier>) = modifiers.also { it.add(0, this) }
@@ -26,7 +24,8 @@ object PainteraBaseKeys {
     const val CYCLE_INTERPOLATION_MODES        = "cycle interpolation modes"
     const val CYCLE_CURRENT_SOURCE_FORWARD     = "cycle current source forward"
     const val CYCLE_CURRENT_SOURCE_BACKWARD    = "cycle current source backward"
-    const val TOGGLE_CURRENT_SOURCE_VISIBILITY = "toggle current soruce visibility"
+    const val TOGGLE_CURRENT_SOURCE_VISIBILITY = "toggle current source visibility"
+    const val DETACH_VIEWER                    = "detach viewer"
     const val MAXIMIZE_VIEWER                  = "toggle maximize viewer"
     const val DEDICATED_VIEWER_WINDOW          = "toggle dedicated viewer window"
     const val MAXIMIZE_VIEWER_AND_3D           = "toggle maximize viewer and 3D"
@@ -65,6 +64,7 @@ object PainteraBaseKeys {
         TOGGLE_CURRENT_SOURCE_VISIBILITY            byKeyCombo V,
         CYCLE_INTERPOLATION_MODES                   byKeyCombo I,
         MAXIMIZE_VIEWER                             byKeyCombo M,
+        DETACH_VIEWER                               byKeyCombo K,
         MAXIMIZE_VIEWER_AND_3D                      byKeyCombo SHIFT_DOWN + M,
         CREATE_NEW_LABEL_DATASET                    byKeyCombo CONTROL_DOWN + SHIFT_DOWN + N,
         SHOW_REPL_TABS                              byKeyCombo SHORTCUT_DOWN + ALT_DOWN + T,
@@ -85,10 +85,10 @@ object LabelSourceStateKeys {
     const val MERGE_ALL_SELECTED                           = "merge all selected"
     const val ENTER_SHAPE_INTERPOLATION_MODE               = "shape interpolation: enter mode"
     const val EXIT_SHAPE_INTERPOLATION_MODE                = "shape interpolation: exit mode"
+    const val SHAPE_INTERPOLATION_TOGGLE_PREVIEW           = "shape interpolation: toggle preview mode"
     const val SHAPE_INTERPOLATION_APPLY_MASK               = "shape interpolation: apply mask"
-    const val SHAPE_INTERPOLATION_APPLY_MASK_INPLACE       = "shape interpolation: apply mask inplace"
-    const val SHAPE_INTERPOLATION_EDIT_SELECTION_1         = "shape interpolation: edit selection 1"
-    const val SHAPE_INTERPOLATION_EDIT_SELECTION_2         = "shape interpolation: edit selection 2"
+    const val SHAPE_INTERPOLATION_EDIT_FIRST_SELECTION     = "shape interpolation: edit first selection"
+    const val SHAPE_INTERPOLATION_EDIT_LAST_SELECTION      = "shape interpolation: edit last selection"
     const val SHAPE_INTERPOLATION_EDIT_PREVIOUS_SELECTION  = "shape interpolation: edit previous selection"
     const val SHAPE_INTERPOLATION_EDIT_NEXT_SELECTION      = "shape interpolation: edit next selection"
     const val ARGB_STREAM_INCREMENT_SEED                   = "argb stream: increment seed"
@@ -107,11 +107,11 @@ object LabelSourceStateKeys {
         ENTER_SHAPE_INTERPOLATION_MODE              byKeyCombo S,
         EXIT_SHAPE_INTERPOLATION_MODE               byKeyCombo ESCAPE,
         SHAPE_INTERPOLATION_APPLY_MASK              byKeyCombo ENTER,
-        SHAPE_INTERPOLATION_APPLY_MASK_INPLACE      byKeyCombo SHIFT_DOWN + ENTER,
-        SHAPE_INTERPOLATION_EDIT_SELECTION_1        byKeyCombo DIGIT1,
-        SHAPE_INTERPOLATION_EDIT_SELECTION_2        byKeyCombo DIGIT2,
+        SHAPE_INTERPOLATION_EDIT_FIRST_SELECTION    byKeyCombo DIGIT1,
+        SHAPE_INTERPOLATION_EDIT_LAST_SELECTION     byKeyCombo DIGIT0,
         SHAPE_INTERPOLATION_EDIT_PREVIOUS_SELECTION byKeyCombo LEFT,
         SHAPE_INTERPOLATION_EDIT_NEXT_SELECTION     byKeyCombo RIGHT,
+        SHAPE_INTERPOLATION_TOGGLE_PREVIEW          byKeyCombo CONTROL_DOWN + P ,
         ARGB_STREAM_INCREMENT_SEED                  byKeyCombo C,
         ARGB_STREAM_DECREMENT_SEED                  byKeyCombo C + SHIFT_DOWN,
         REFRESH_MESHES                              byKeyCombo R,

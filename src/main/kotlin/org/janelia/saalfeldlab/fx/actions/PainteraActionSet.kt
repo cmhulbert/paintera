@@ -8,6 +8,7 @@ import javafx.scene.input.MouseEvent
 import org.janelia.saalfeldlab.paintera.control.actions.ActionType
 import org.janelia.saalfeldlab.paintera.control.tools.Tool
 import org.janelia.saalfeldlab.paintera.paintera
+import org.slf4j.LoggerFactory
 import java.util.function.Consumer
 
 
@@ -19,11 +20,18 @@ open class PainteraActionSet(val actionType: ActionType, name: String, apply: (A
         return allowedActionsProperty.get().isAllowed(actionType)
     }
 
+    private fun painteraIsDisabled(): Boolean {
+        val isDisabled = paintera.baseView.isDisabledProperty.get()
+        LOG.debug("Action Denied: Paintera is Disabled")
+        return isDisabled
+    }
+
     override fun <E : Event> preInvokeCheck(action: Action<E>, event: E): Boolean {
-        return actionTypeAllowed() && super.preInvokeCheck(action, event)
+        return !painteraIsDisabled() && actionTypeAllowed() && super.preInvokeCheck(action, event)
     }
 
     companion object {
+        private val LOG = LoggerFactory.getLogger(this::class.java)
         private val allowedActionsProperty = paintera.baseView.allowedActionsProperty()
         private val keyTracker = paintera.keyTracker
 

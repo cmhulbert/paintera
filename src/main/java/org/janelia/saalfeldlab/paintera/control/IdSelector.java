@@ -59,7 +59,7 @@ public class IdSelector {
   public MouseAction selectFragmentWithMaximumCountAction() {
 
 	MouseAction mouseAction = PainteraActionSet.newMouseAction(MouseEvent.MOUSE_RELEASED);
-	mouseAction.onAction(new SelectFragmentWithMaximumCount());
+	mouseAction.onAction(event -> new SelectFragmentWithMaximumCount(!event.isAltDown()).accept(event));
 	return mouseAction;
   }
 
@@ -208,10 +208,22 @@ public class IdSelector {
 
   private class SelectFragmentWithMaximumCount extends SelectMaximumCount {
 
+	private final boolean foregroundOnly;
+
+	public SelectFragmentWithMaximumCount() {
+
+	  this(true);
+	}
+
+	public SelectFragmentWithMaximumCount(boolean foregroundOnly) {
+
+	  this.foregroundOnly = foregroundOnly;
+	}
+
 	@Override
 	protected void actOn(final long id) {
 
-	  if (foregroundCheck.test(id)) {
+	  if (!foregroundOnly || foregroundCheck.test(id)) {
 		if (selectedIds.isOnlyActiveId(id)) {
 		  selectedIds.deactivate(id);
 		} else {

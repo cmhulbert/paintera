@@ -8,7 +8,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import org.janelia.saalfeldlab.fx.actions.ActionSet
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.paintera.control.ControlUtils
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.paint.FloodFill
@@ -24,7 +24,7 @@ class Fill3DTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, 
     override val graphicProperty: SimpleObjectProperty<Node>
         get() = TODO("Not yet implemented")
 
-    val fill by LazyForeignMap({ activeViewer to statePaintContext }) {
+    val fill by LazyForeignValue({ activeViewer to statePaintContext }) {
         with(it.second!!) {
             FloodFill(
                 activeViewer,
@@ -32,11 +32,12 @@ class Fill3DTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, 
                 assignment,
                 { paintera.baseView.orthogonalViews().requestRepaint() },
                 { MeshSettings.Defaults.Values.isVisible },
-                setFloodFillState)
+                setFloodFillState
+            )
         }
     }
 
-    private val overlay by LazyForeignMap({ activeViewer }) { Fill3DOverlay(it!!) }
+    private val overlay by LazyForeignValue({ activeViewer }) { Fill3DOverlay(it!!) }
 
 
     override fun activate() {
@@ -51,7 +52,7 @@ class Fill3DTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, 
     }
 
     override val actionSets: List<ActionSet> = listOf(
-        PainteraActionSet(PaintActionType.SetBrush, "change brush depth") {
+        PainteraActionSet(PaintActionType.SetBrushDepth, "change brush depth") {
             action(ScrollEvent.SCROLL) {
                 keysDown(KeyCode.F, KeyCode.SHIFT)
                 onAction { changeBrushDepth(-ControlUtils.getBiggestScroll(it)) }

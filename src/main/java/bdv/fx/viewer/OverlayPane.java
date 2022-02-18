@@ -156,5 +156,4 @@ public class OverlayPane<A> extends StackPane {
 
 	return this.children;
   }
-
 }

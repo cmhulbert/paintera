@@ -1,7 +1,5 @@
 package org.janelia.saalfeldlab.paintera.control.paint;
 
-import java.util.stream.IntStream;
-
 import gnu.trove.list.array.TDoubleArrayList;
 import gnu.trove.list.array.TLongArrayList;
 import net.imglib2.RandomAccess;
@@ -9,6 +7,8 @@ import net.imglib2.RealLocalizable;
 import net.imglib2.RealPoint;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.numeric.IntegerType;
+
+import java.util.stream.IntStream;
 
 public class FloodFillTransformedCylinder3D {
 
@@ -131,7 +131,7 @@ public class FloodFillTransformedCylinder3D {
 
   }
 
-  public void fill(
+  public void fill2(
 		  final RandomAccess<? extends IntegerType<?>> localAccess,
 		  final RealLocalizable seedWorld,
 		  final long fillLabel) {
@@ -141,7 +141,7 @@ public class FloodFillTransformedCylinder3D {
 	final RealPoint seedLocal = new RealPoint(seedWorld);
 	localToWorld.applyInverse(seedLocal, seedLocal);
 
-	final TLongArrayList sourceCoordinates = new TLongArrayList();
+	final TLongArrayList localCoordinates = new TLongArrayList();
 	final TDoubleArrayList worldCoordinates = new TDoubleArrayList();
 
 	final double cx = seedWorld.getDoublePosition(0);
@@ -150,17 +150,17 @@ public class FloodFillTransformedCylinder3D {
 	final double zMaxInclusive = seedWorld.getDoublePosition(2) + zRangePos;
 
 	for (int d = 0; d < 3; ++d) {
-	  sourceCoordinates.add(Math.round(seedLocal.getDoublePosition(d)));
+	  localCoordinates.add(Math.round(seedLocal.getDoublePosition(d)));
 	  worldCoordinates.add(pos[d]);
 	}
 
-	for (int offset = 0; offset < sourceCoordinates.size(); offset += 3) {
+	for (int offset = 0; offset < localCoordinates.size(); offset += 3) {
 	  final int o0 = offset + 0;
 	  final int o1 = offset + 1;
 	  final int o2 = offset + 2;
-	  final long lx = sourceCoordinates.get(o0);
-	  final long ly = sourceCoordinates.get(o1);
-	  final long lz = sourceCoordinates.get(o2);
+	  final long lx = localCoordinates.get(o0);
+	  final long ly = localCoordinates.get(o1);
+	  final long lz = localCoordinates.get(o2);
 	  localAccess.setPosition(lx, 0);
 	  localAccess.setPosition(ly, 1);
 	  localAccess.setPosition(lz, 2);
@@ -193,7 +193,83 @@ public class FloodFillTransformedCylinder3D {
 			final var worldZ = z + xStep * dxz + yStep * dyz + zStep * dzz;
 
 			addIfInside(
-					sourceCoordinates,
+					localCoordinates,
+					worldCoordinates,
+					labelX, labelY, labelZ,
+					worldX, worldY, worldZ,
+					cx, cy,
+					zMinInclusive, zMaxInclusive
+			);
+		  }
+		}
+	  }
+	}
+
+  }
+
+  public void fill(
+		  final RandomAccess<? extends IntegerType<?>> localAccess,
+		  final RealLocalizable seedWorld,
+		  final long fillLabel) {
+
+	final double[] pos = IntStream.range(0, 3).mapToDouble(seedWorld::getDoublePosition).toArray();
+
+	final RealPoint seedLocal = new RealPoint(seedWorld);
+	localToWorld.applyInverse(seedLocal, seedLocal);
+
+	final TLongArrayList localCoordinates = new TLongArrayList();
+	final TDoubleArrayList worldCoordinates = new TDoubleArrayList();
+
+	final double cx = seedWorld.getDoublePosition(0);
+	final double cy = seedWorld.getDoublePosition(1);
+	final double zMinInclusive = seedWorld.getDoublePosition(2) + zRangeNeg;
+	final double zMaxInclusive = seedWorld.getDoublePosition(2) + zRangePos;
+
+	for (int d = 0; d < 3; ++d) {
+	  localCoordinates.add(Math.round(seedLocal.getDoublePosition(d)));
+	  worldCoordinates.add(pos[d]);
+	}
+
+	for (int offset = 0; offset < localCoordinates.size(); offset += 3) {
+	  final int o0 = offset + 0;
+	  final int o1 = offset + 1;
+	  final int o2 = offset + 2;
+	  final long lx = localCoordinates.get(o0);
+	  final long ly = localCoordinates.get(o1);
+	  final long lz = localCoordinates.get(o2);
+	  localAccess.setPosition(lx, 0);
+	  localAccess.setPosition(ly, 1);
+	  localAccess.setPosition(lz, 2);
+
+	  final IntegerType<?> val = localAccess.get();
+
+	  if (val.getIntegerLong() == fillLabel) {
+		continue;
+	  }
+	  val.setInteger(fillLabel);
+
+	  final double x = worldCoordinates.get(o0);
+	  final double y = worldCoordinates.get(o1);
+	  final double z = worldCoordinates.get(o2);
+
+	  final int[] moveDirection = {-1, 0, 1};
+	  for (int xStep : moveDirection) {
+		for (int yStep : moveDirection) {
+		  for (int zStep : moveDirection) {
+			if (xStep == yStep && xStep == zStep && xStep == 0) {
+			  /* this is our current seed point, don't check it*/
+			  continue;
+			}
+			final var labelX = lx + xStep;
+			final var labelY = ly + yStep;
+			final var labelZ = lz + zStep;
+
+			final var worldX = x + xStep * dxx + yStep * dyx + zStep * dzx;
+			final var worldY = y + xStep * dxy + yStep * dyy + zStep * dzy;
+			final var worldZ = z + xStep * dxz + yStep * dyz + zStep * dzz;
+
+			addIfInside(
+					localCoordinates,
 					worldCoordinates,
 					labelX, labelY, labelZ,
 					worldX, worldY, worldZ,

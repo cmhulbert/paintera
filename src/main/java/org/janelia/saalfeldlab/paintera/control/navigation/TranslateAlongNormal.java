@@ -41,6 +41,9 @@ public class TranslateAlongNormal {
   public void translate(final double step, final double speedModifier) {
 
 	synchronized (manager) {
+	  if (step == 0) {
+		return;
+	  }
 	  final double[] delta = {0, 0, Math.signum(step) * translationSpeed.multiply(speedModifier).doubleValue()};
 	  final AffineTransform3D affine = global.copy();
 	  final AffineTransform3D rotationAndScalingOnly = worldToSharedViewerSpace.copy();

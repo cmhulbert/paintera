@@ -11,17 +11,18 @@ import org.janelia.saalfeldlab.fx.actions.ActionSet
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
 import org.janelia.saalfeldlab.fx.actions.installActionSet
 import org.janelia.saalfeldlab.fx.actions.removeActionSet
+import org.janelia.saalfeldlab.fx.extensions.createValueBinding
+import org.janelia.saalfeldlab.fx.extensions.nullableVal
 import org.janelia.saalfeldlab.fx.ortho.OrthogonalViews
 import org.janelia.saalfeldlab.paintera.LabelSourceStateKeys
 import org.janelia.saalfeldlab.paintera.LabelSourceStateKeys.ENTER_SHAPE_INTERPOLATION_MODE
 import org.janelia.saalfeldlab.paintera.control.ShapeInterpolationController
 import org.janelia.saalfeldlab.paintera.control.actions.AllowedActions
+import org.janelia.saalfeldlab.paintera.control.actions.LabelActionType
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.tools.Tool
-import org.janelia.saalfeldlab.paintera.control.tools.paint.Fill2DTool
-import org.janelia.saalfeldlab.paintera.control.tools.paint.Fill3DTool
-import org.janelia.saalfeldlab.paintera.control.tools.paint.PaintBrushTool
-import org.janelia.saalfeldlab.paintera.control.tools.paint.RestrictPaintToLabelTool
+import org.janelia.saalfeldlab.paintera.control.tools.paint.*
+import org.janelia.saalfeldlab.paintera.control.tools.paint.PaintTool.Companion.createPaintStateContext
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.LabelSourceState
@@ -30,6 +31,9 @@ import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
 
 
 object PaintLabelMode : AbstractToolMode() {
+
+    val activeSourceToSourceStateContextBinding = activeSourceStateProperty.createValueBinding { binding -> createPaintStateContext(binding) }
+    val statePaintContext by activeSourceToSourceStateContextBinding.nullableVal()
 
     private val paintBrushTool = PaintBrushTool(activeSourceStateProperty)
     private val fill2DTool = Fill2DTool(activeSourceStateProperty)
@@ -46,13 +50,18 @@ object PaintLabelMode : AbstractToolMode() {
         )
     }
 
-    override val toolTriggers: List<ActionSet> by lazy { getToolTriggerActions() }
+    override val modeActions: List<ActionSet> by lazy {
+        listOf(
+            *getToolTriggerActions().toTypedArray(),
+            getSelectNextIdAction(),
+        )
+    }
 
     override val allowedActions = AllowedActions.PAINT
 
     private val moveToolTriggersToActiveViewer = ChangeListener<OrthogonalViews.ViewerAndTransforms?> { _, old, new ->
         /* remove the tool triggers from old, add to new */
-        toolTriggers.forEach { actionSet ->
+        modeActions.forEach { actionSet ->
             old?.viewer()?.removeActionSet(actionSet)
             new?.viewer()?.installActionSet(actionSet)
         }
@@ -69,7 +78,7 @@ object PaintLabelMode : AbstractToolMode() {
     override fun exit() {
         activeViewerProperty.removeListener(moveToolTriggersToActiveViewer)
         activeViewerProperty.get()?.let {
-            toolTriggers.forEach { actionSet ->
+            modeActions.forEach { actionSet ->
                 it.viewer()?.removeActionSet(actionSet)
             }
         }
@@ -131,7 +140,7 @@ object PaintLabelMode : AbstractToolMode() {
             onAction { switchTool(fill3DTool) }
         }
         KEY_PRESSED {
-            /* swallow F down events while Filling*/
+            /* swallow F down events while filling*/
             filter = true
             consume = true
             verify { it.code in listOf(KeyCode.F, KeyCode.SHIFT) && activeTool is Fill3DTool }
@@ -155,8 +164,6 @@ object PaintLabelMode : AbstractToolMode() {
             name = LabelSourceStateKeys.CANCEL_3D_FLOODFILL
             /* Don't use `keyMatchesBinding` because we want to dynamically grabthe `keyBindingsProperty` each time, incase it changes */
             verify { keyBindingsProperty.get()?.matches(LabelSourceStateKeys.CANCEL_3D_FLOODFILL, it) ?: false }
-
-
         }
     }
 
@@ -191,7 +198,6 @@ object PaintLabelMode : AbstractToolMode() {
             verify { activeSourceStateProperty.get()?.dataSource as? MaskedSource<out IntegerType<*>, *> != null }
             onAction {
                 newShapeInterpolationModeForSource(activeSourceStateProperty.get())?.let {
-                    it.paintBrushTool.brushProperties.bindBidirectional(paintBrushTool.brushProperties)
                     paintera.baseView.changeMode(it)
                 }
             }
@@ -206,6 +212,16 @@ object PaintLabelMode : AbstractToolMode() {
         restrictPaintToLabel,
         enterShapeInterpolationMode
     )
+
+    private fun getSelectNextIdAction() = PainteraActionSet(LabelActionType.CreateNew, "Create New Segment") {
+        KEY_PRESSED {
+            keyMatchesBinding(keyBindings!!, LabelSourceStateKeys.NEXT_ID)
+            verify { activeTool !is PaintTool }
+            onAction {
+                statePaintContext?.nextId(activate = true)
+            }
+        }
+    }
 
     private fun newShapeInterpolationModeForSource(sourceState: SourceState<*, *>?): ShapeInterpolationMode<*>? {
         return sourceState?.let { state ->

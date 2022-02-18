@@ -161,9 +161,9 @@ public abstract class HighlightingStreamConverter<T>
   }
 
   @Override
-  public void setColor(final long id, final Color color) {
+  public void setColor(final long id, final Color color, final boolean overrideAlpha) {
 
-	stream.specifyColorExplicitly(id, Colors.toARGBType(color).get());
+	stream.specifyColorExplicitly(id, Colors.toARGBType(color).get(), overrideAlpha);
   }
 
   @Override

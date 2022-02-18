@@ -95,7 +95,7 @@ class N5BackendSingleScaleDataset<D, T> constructor(
             val dataSource = N5DataSourceMetadata<D, T>(metadataState, name, queue, priority)
             return metadataState.n5ContainerState.writer?.let {
                 val tmpDir = Masks.canvasTmpDirDirectorySupplier(projectDirectory)
-                Masks.mask(dataSource, queue, tmpDir.get(), tmpDir, CommitCanvasN5(metadataState), propagationExecutorService)
+                Masks.maskedSource(dataSource, queue, tmpDir.get(), tmpDir, CommitCanvasN5(metadataState), propagationExecutorService)
             } ?: dataSource
         }
     }

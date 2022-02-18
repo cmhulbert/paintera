@@ -46,7 +46,7 @@ interface SourceMode : ControlMode {
 interface ToolMode : SourceMode {
 
     val toolBarTools: ObservableList<Tool>
-    val toolTriggers: List<ActionSet>
+    val modeActions: List<ActionSet>
 
     var activeToolProperty: ObjectProperty<Tool?>
     var activeTool: Tool?
@@ -107,6 +107,7 @@ abstract class AbstractSourceMode : SourceMode {
         activeViewerProperty.unbind()
         activeSourceStateProperty.set(null)
         activeViewerProperty.set(null)
+        activeViewerProperty.removeListener(sourceSpecificViewerActionListener)
     }
 }
 

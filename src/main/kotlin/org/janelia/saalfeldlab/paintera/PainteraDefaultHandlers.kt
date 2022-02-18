@@ -132,10 +132,11 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
         sourceInfo.currentState().addListener { _, _, newState -> paintera.baseView.changeMode(newState.defaultMode) }
         sourceInfo.currentSourceProperty().addListener { _, oldSource, newSource ->
             (oldSource as? MaskedSource<*, *>)?.apply {
-                paintera.baseView.isDisabledProperty.unbind()
+                paintera.baseView.disabledPropertyBindings.remove(oldSource)
             }
             (newSource as? MaskedSource<*, *>)?.apply {
-                paintera.baseView.isDisabledProperty.bind(isBusyProperty)
+                val maskedSourceBusyBinding = Bindings.createBooleanBinding({ isBusyProperty.get() }, isBusyProperty)
+                paintera.baseView.disabledPropertyBindings[newSource] = maskedSourceBusyBinding
             }
         }
 
@@ -231,6 +232,12 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
                 PainteraBaseKeys.MAXIMIZE_VIEWER,
                 { toggle.toggleMaximizeViewer() },
                 { baseView.isActionAllowed(MenuActionType.ToggleMaximizeViewer) && keyCombinations.matches(PainteraBaseKeys.MAXIMIZE_VIEWER, it) }
+            ).installInto(view.viewer())
+
+            EventFX.KEY_PRESSED(
+                PainteraBaseKeys.DETACH_VIEWER,
+                { toggle.detachViewer() },
+                { baseView.isActionAllowed(MenuActionType.ToggleMaximizeViewer) }
             ).installInto(view.viewer())
 
 

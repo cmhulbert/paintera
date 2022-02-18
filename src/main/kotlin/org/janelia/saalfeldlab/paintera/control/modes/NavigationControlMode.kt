@@ -4,15 +4,19 @@ import javafx.beans.binding.*
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.SimpleObjectProperty
+import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.input.*
 import javafx.scene.input.KeyEvent.KEY_PRESSED
 import net.imglib2.realtransform.AffineTransform3D
+import org.janelia.saalfeldlab.control.VPotControl
+import org.janelia.saalfeldlab.control.mcu.MCUControlPanel
 import org.janelia.saalfeldlab.fx.actions.*
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.fx.extensions.invoke
 import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.paintera.NavigationKeys
+import org.janelia.saalfeldlab.paintera.Paintera
 import org.janelia.saalfeldlab.paintera.config.input.KeyAndMouseBindings
 import org.janelia.saalfeldlab.paintera.control.ControlUtils
 import org.janelia.saalfeldlab.paintera.control.actions.AllowedActions
@@ -33,17 +37,13 @@ object NavigationControlMode : AbstractToolMode() {
      * Intentianally empty. [NavigationControlMode] has only one tool, which contains all the Navigation actions.
      * It will always be active when [NavigationControlMode] is the active mode.
      */
-    override val toolTriggers = listOf<ActionSet>()
+    override val modeActions = listOf<ActionSet>()
 
     override val allowedActions = AllowedActions.NAVIGATION
 
     override fun enter() {
         super.enter()
         switchTool(NavigationTool)
-    }
-
-    override fun exit() {
-        super.exit()
     }
 }
 
@@ -76,6 +76,11 @@ object NavigationTool : ViewerTool() {
 
 
     override fun activate() {
+        /* If midi is present, register events */
+        Paintera.midi?.let {
+            registerMidi(it)
+        }
+
         with(properties.navigationConfig) {
             allowRotationsProperty.bind(allowRotations)
             buttonRotationSpeedConfig.regular.bind(buttonRotationSpeeds.regular)
@@ -83,6 +88,39 @@ object NavigationTool : ViewerTool() {
             buttonRotationSpeedConfig.fast.bind(buttonRotationSpeeds.fast)
         }
         super.activate()
+    }
+
+    class MidiEvent(val input: Int, eventType: EventType<MidiEvent> = MIDI_INPUT) : InputEvent(eventType) {
+
+        companion object {
+
+            @JvmStatic
+            val MIDI_INPUT = EventType<MidiEvent>(ANY, "MIDI")
+
+            @JvmStatic
+            val MIDI_VPOT_0 = EventType(MIDI_INPUT, "MIDI_VPOT")
+
+            @JvmStatic
+            val MIDI_BUTTON = EventType(MIDI_INPUT, "MIDI_BUTTON")
+
+            @JvmStatic
+            val MIDI_FADER = EventType(MIDI_INPUT, "MIDI_FADER")
+        }
+    }
+
+    private fun registerMidi(panel: MCUControlPanel) {
+
+
+        panel.getVPotControl(0).apply {
+            clearListeners()
+            isAbsolute = false
+            setMinMax(-10, 10)
+            setDisplayType(VPotControl.DISPLAY_TRIM)
+            addListener { input ->
+                val event = MidiEvent(input, MidiEvent.MIDI_VPOT_0)
+                activeViewer?.fireEvent(event)
+            }
+        }
     }
 
 
@@ -97,7 +135,7 @@ object NavigationTool : ViewerTool() {
     }
 
 
-    override val actionSets by LazyForeignMap({ activeViewerAndTransforms }) { viewerAndTransforms ->
+    override val actionSets by LazyForeignValue({ activeViewerAndTransforms }) { viewerAndTransforms ->
         viewerAndTransforms?.run {
 
             val viewerTransform = AffineTransform3D().apply {
@@ -155,6 +193,7 @@ object NavigationTool : ViewerTool() {
                 getTranslateAlongNormalScrollActions(normalTranslationController),
                 getTranslateAlongNormalKeyActions(normalTranslationController),
                 getTranslateInPlaneDragAction(translateXYController),
+                getMidiActions(translateXYController, normalTranslationController, zoomController, displayTransform, globalToViewerTransform),
                 getZoomScrollActions(zoomController),
                 getZoomKeyActions(zoomController, mouseXIfInsideElseCenterX, mouseYIfInsideElseCenterY),
                 getRotationMouseAction(displayTransform, globalToViewerTransform),
@@ -167,9 +206,20 @@ object NavigationTool : ViewerTool() {
         } ?: arrayListOf()
     }
 
+    private fun getMidiActions(translateXYController: TranslateWithinPlane, normalTranslationController: TranslateAlongNormal, zoomController: Zoom, displayTransform: AffineTransform3D, globalToViewerTransform: AffineTransform3D): ActionSet {
+        return PainteraActionSet(NavigationActionType.Pan, "Midi Actions") {
+            MidiEvent.MIDI_VPOT_0 {
+                onAction {
+                    translateXYController.init()
+                    translateXYController.translate(it.input.toDouble(), 0.0)
+                }
+            }
+        }
+    }
+
     private fun getTranslateAlongNormalScrollActions(normalTranslationController: TranslateAlongNormal): ActionSet {
         data class ScrollSpeedStruct(val name: String, val speed: Double, val keysInit: Action<ScrollEvent>.() -> Unit)
-        return PainteraActionSet(NavigationActionType.Scroll, "translate along normal") {
+        return PainteraActionSet(NavigationActionType.Slice, "translate along normal") {
             listOf(
                 ScrollSpeedStruct("default", DEFAULT) { keysDown() },
                 ScrollSpeedStruct("fast", FAST) { keysDown(KeyCode.SHIFT) },
@@ -195,7 +245,7 @@ object NavigationTool : ViewerTool() {
 
     private fun getTranslateAlongNormalKeyActions(translateAlongNormal: TranslateAlongNormal): ActionSet {
         data class TranslateNormalStruct(val step: Double, val speed: Double, val keyName: String)
-        return PainteraActionSet(NavigationActionType.Scroll, "translate along normal") {
+        return PainteraActionSet(NavigationActionType.Slice, "translate along normal") {
             listOf(
                 TranslateNormalStruct(1.0, DEFAULT, NavigationKeys.BUTTON_TRANSLATE_ALONG_NORMAL_BACKWARD),
                 TranslateNormalStruct(1.0, FAST, NavigationKeys.BUTTON_TRANSLATE_ALONG_NORMAL_BACKWARD_FAST),
@@ -213,7 +263,7 @@ object NavigationTool : ViewerTool() {
     }
 
     private fun getTranslateInPlaneDragAction(translateXYController: TranslateWithinPlane) =
-        PainteraDragActionSet(NavigationActionType.Drag, "translate xy") {
+        PainteraDragActionSet(NavigationActionType.Pan, "translate xy") {
             verify { it.isSecondaryButtonDown }
             handleDragDetected { translateXYController.init() }
             handleDrag { translateXYController.translate(it.x - startX, it.y - startY) }

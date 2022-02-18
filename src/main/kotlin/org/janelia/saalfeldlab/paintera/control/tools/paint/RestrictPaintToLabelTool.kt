@@ -7,7 +7,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseEvent
 import org.janelia.saalfeldlab.fx.actions.ActionSet
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.paint.RestrictPainting
 import org.janelia.saalfeldlab.paintera.paintera
@@ -19,7 +19,7 @@ class RestrictPaintToLabelTool(activeSourceStateProperty: SimpleObjectProperty<S
     override val graphicProperty: SimpleObjectProperty<Node>
         get() = TODO("Not yet implemented")
 
-    private val overlay by LazyForeignMap({ activeViewer }) { RestrictOverlay(it!!) }
+    private val overlay by LazyForeignValue({ activeViewer }) { RestrictOverlay(it!!) }
 
     override fun activate() {
         super.activate()
