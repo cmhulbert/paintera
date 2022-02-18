@@ -257,6 +257,7 @@ public class VolatileHierarchyProjector<A extends Volatile<?>, B extends Numeric
 	  numInvalidPixels.set(0);
 
 	  final ArrayList<Callable<Void>> tasks = new ArrayList<>(numTasks);
+	  final var setTargetLock = new Object();
 	  for (int taskNum = 0; taskNum < numTasks; ++taskNum) {
 		final int myOffset = width * (int)(taskNum * taskHeight);
 		final long myMinY = min[1] + (int)(taskNum * taskHeight);
@@ -289,13 +290,16 @@ public class VolatileHierarchyProjector<A extends Volatile<?>, B extends Numeric
 			for (int x = 0; x < width; ++x) {
 			  final ByteType m = maskCursor.next();
 			  if (m.get() > iFinal) {
-				final A a = sourceRandomAccess.get();
-				final boolean v = a.isValid();
-				if (v) {
-				  converter.convert(a, targetRandomAccess.get());
-				  m.set(iFinal);
-				} else
-				  ++myNumInvalidPixels;
+				//TODO Caleb: Fix udnerlying issue, to remove the lock
+				synchronized (setTargetLock) {
+				  final A a = sourceRandomAccess.get();
+				  final boolean v = a.isValid();
+				  if (v) {
+					converter.convert(a, targetRandomAccess.get());
+					m.set(iFinal);
+				  } else
+					++myNumInvalidPixels;
+				}
 			  }
 			  sourceRandomAccess.fwd(0);
 			  targetRandomAccess.fwd(0);

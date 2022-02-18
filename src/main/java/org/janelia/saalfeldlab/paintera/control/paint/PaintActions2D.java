@@ -8,13 +8,13 @@ import org.janelia.saalfeldlab.paintera.ui.overlays.BrushOverlay;
 
 public class PaintActions2D {
 
+  private static final double BRUSH_RADIUS_SCALE_FACTOR = 1.1;
+
   private final ViewerPanelFX viewer;
 
   private final BrushOverlay brushOverlay;
 
   private final SimpleDoubleProperty brushRadius = new SimpleDoubleProperty(5.0);
-
-  private final SimpleDoubleProperty brushRadiusScale = new SimpleDoubleProperty(1.1);
 
   private final SimpleDoubleProperty brushDepth = new SimpleDoubleProperty(1.0);
 
@@ -78,12 +78,12 @@ public class PaintActions2D {
 
   public void decreaseBrushRadius() {
 
-	setBrushRadius(brushRadius.get() / brushRadiusScale.get());
+	setBrushRadius(brushRadius.get() / BRUSH_RADIUS_SCALE_FACTOR);
   }
 
   public void increaseBrushRadius() {
 
-	setBrushRadius(brushRadius.get() * brushRadiusScale.get());
+	setBrushRadius(brushRadius.get() * BRUSH_RADIUS_SCALE_FACTOR);
   }
 
   public void setBrushRadius(final double radius) {
@@ -101,10 +101,4 @@ public class PaintActions2D {
 
 	return this.brushDepth;
   }
-
-  public DoubleProperty brushRadiusScaleProperty() {
-
-	return this.brushRadiusScale;
-  }
-
 }

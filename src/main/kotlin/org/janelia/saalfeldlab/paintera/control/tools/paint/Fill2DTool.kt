@@ -9,13 +9,12 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import org.janelia.saalfeldlab.fx.actions.ActionSet
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.paintera.control.ControlUtils
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.paint.FloodFill2D
 import org.janelia.saalfeldlab.paintera.meshes.MeshSettings
-import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.SourceState
 import org.janelia.saalfeldlab.paintera.ui.overlays.CursorOverlayWithText
 
@@ -23,13 +22,12 @@ class Fill2DTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, 
     override val graphicProperty: SimpleObjectProperty<Node>
         get() = TODO("Not yet implemented")
 
-    val fill2D by LazyForeignMap({ activeViewer to statePaintContext }) {
+    val fill2D by LazyForeignValue({ activeViewer to statePaintContext }) {
         with(it.second!!) {
             FloodFill2D(
                 activeViewer,
                 dataSource,
                 assignment,
-                { paintera.baseView.orthogonalViews().requestRepaint() },
                 { MeshSettings.Defaults.Values.isVisible }
             ).apply {
                 fillDepthProperty().bindBidirectional(brushProperties.brushDepthProperty)
@@ -37,31 +35,33 @@ class Fill2DTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, 
         }
     }
 
-    private val overlay by LazyForeignMap({ activeViewer }) {
-        Fill2DOverlay(it!!).apply {
-            brushDepthProperty.bindBidirectional(brushProperties.brushDepthProperty)
+    private val overlay by LazyForeignValue({ activeViewer }) {
+        it?.let {
+            Fill2DOverlay(it!!).apply {
+                brushDepthProperty.bindBidirectional(brushProperties!!.brushDepthProperty)
+            }
         }
     }
 
     override fun activate() {
         super.activate()
-        activeViewer?.apply { overlay.setPosition(mouseXProperty.get(), mouseYProperty.get()) }
-        overlay.visible = true
+        activeViewer?.apply { overlay?.setPosition(mouseXProperty.get(), mouseYProperty.get()) }
+        overlay?.visible = true
     }
 
     override fun deactivate() {
-        overlay.visible = false
+        overlay?.visible = false
         super.deactivate()
     }
 
     override val actionSets: List<ActionSet> = listOf(
-        PainteraActionSet(PaintActionType.SetBrush, "change brush depth") {
+        PainteraActionSet("change brush depth", PaintActionType.SetBrushDepth) {
             action(ScrollEvent.SCROLL) {
                 keysDown(KeyCode.F)
                 onAction { changeBrushDepth(-ControlUtils.getBiggestScroll(it)) }
             }
         },
-        PainteraActionSet(PaintActionType.Fill, "fill 2d") {
+        PainteraActionSet("fill 2d", PaintActionType.Fill) {
             mouseAction(MouseEvent.MOUSE_PRESSED) {
                 keysDown(KeyCode.F)
                 verify { it.isPrimaryButtonDown }

@@ -122,53 +122,53 @@ class HighlightingStreamConverterConfigNode(private val converter: HighlightingS
                 } catch (e: NumberFormatException) {
                     LOG.error("Not a valid long/integer format: {}", addIdField.text)
                 }
-
-                val hideLockedSegments = CheckBox("Hide locked segments.")
-                hideLockedSegments.tooltip = Tooltip("Hide locked segments (toggle lock with L)")
-                hideLockedSegments.selectedProperty().bindBidirectional(converter.hideLockedSegmentsProperty())
-                contents.children.add(hideLockedSegments)
-
-                val colorFromSegmentId = CheckBox("Color From segment Id.")
-                colorFromSegmentId.tooltip = Tooltip(
-                    "Generate fragment color from segment id (on) or fragment id (off)"
-                )
-                colorFromSegmentId.selectedProperty().bindBidirectional(colorFromSegment)
-                contents.children.add(colorFromSegmentId)
-
-
-                val colorContents = GridPane()
-                colorContents.hgap = 5.0
-                val colorPane = TitledPane("Custom Colors", colorContents).also { it.isExpanded = false }
-                val colorsChanged = MapChangeListener<Long, Color> { change ->
-                    InvokeOnJavaFXApplicationThread {
-                        var gridRow = 0
-                        colorContents.children.clear()
-                        val it = colorsMap.entries.iterator()
-                        while (it.hasNext()) {
-                            val entry = it.next()
-                            val tf = TextField(entry.key.toString())
-                            tf.isEditable = false
-                            GridPane.setHgrow(tf, Priority.ALWAYS)
-                            val colorPicker = ColorPicker(entry.value)
-                            colorPicker.prefWidth = colorPickerWidth
-                            colorPicker.valueProperty().addListener { _, _, newv -> converter.setColor(entry.key, newv) }
-                            val removeButton = Button("X")
-                            removeButton.prefWidth = buttonWidth
-                            removeButton.setOnAction { converter.removeColor(entry.key) }
-                            colorContents.add(tf, 0, gridRow)
-                            colorContents.add(colorPicker, 1, gridRow)
-                            colorContents.add(removeButton, 2, gridRow)
-                            ++gridRow
-                        }
-                        colorContents.add(addIdField, 0, gridRow)
-                        colorContents.add(addColorPicker, 1, gridRow)
-                        colorContents.add(addButton, 2, gridRow)
-                    }
-                }
-                colorsMap.addListener(colorsChanged)
-                colorsChanged.onChanged(null)
-                contents.children.add(colorPane)
             }
+
+            val hideLockedSegments = CheckBox("Hide locked segments.")
+            hideLockedSegments.tooltip = Tooltip("Hide locked segments (toggle lock with L)")
+            hideLockedSegments.selectedProperty().bindBidirectional(converter.hideLockedSegmentsProperty())
+            contents.children.add(hideLockedSegments)
+
+            val colorFromSegmentId = CheckBox("Color From segment Id.")
+            colorFromSegmentId.tooltip = Tooltip(
+                "Generate fragment color from segment id (on) or fragment id (off)"
+            )
+            colorFromSegmentId.selectedProperty().bindBidirectional(colorFromSegment)
+            contents.children.add(colorFromSegmentId)
+
+
+            val colorContents = GridPane()
+            colorContents.hgap = 5.0
+            val colorPane = TitledPane("Custom Colors", colorContents).also { it.isExpanded = false }
+            val colorsChanged = MapChangeListener<Long, Color> { change ->
+                InvokeOnJavaFXApplicationThread {
+                    var gridRow = 0
+                    colorContents.children.clear()
+                    val it = colorsMap.entries.iterator()
+                    while (it.hasNext()) {
+                        val entry = it.next()
+                        val tf = TextField(entry.key.toString())
+                        tf.isEditable = false
+                        GridPane.setHgrow(tf, Priority.ALWAYS)
+                        val colorPicker = ColorPicker(entry.value)
+                        colorPicker.prefWidth = colorPickerWidth
+                        colorPicker.valueProperty().addListener { _, _, newv -> converter.setColor(entry.key, newv) }
+                        val removeButton = Button("X")
+                        removeButton.prefWidth = buttonWidth
+                        removeButton.setOnAction { converter.removeColor(entry.key) }
+                        colorContents.add(tf, 0, gridRow)
+                        colorContents.add(colorPicker, 1, gridRow)
+                        colorContents.add(removeButton, 2, gridRow)
+                        ++gridRow
+                    }
+                    colorContents.add(addIdField, 0, gridRow)
+                    colorContents.add(addColorPicker, 1, gridRow)
+                    colorContents.add(addButton, 2, gridRow)
+                }
+            }
+            colorsMap.addListener(colorsChanged)
+            colorsChanged.onChanged(null)
+            contents.children.add(colorPane)
 
 
             val helpDialog = PainteraAlerts

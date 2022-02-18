@@ -16,7 +16,7 @@ import org.janelia.saalfeldlab.paintera.control.modes.ControlMode
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.ui.FontAwesome
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
-import org.janelia.saalfeldlab.paintera.ui.menus.NamedMenuItems.*
+import org.janelia.saalfeldlab.paintera.ui.menus.PainteraMenuItems.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 

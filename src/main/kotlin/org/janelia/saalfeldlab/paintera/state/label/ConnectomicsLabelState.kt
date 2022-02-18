@@ -21,6 +21,7 @@ import javafx.scene.paint.Color
 import javafx.scene.shape.Rectangle
 import javafx.stage.Modality
 import net.imglib2.Interval
+import net.imglib2.RealInterval
 import net.imglib2.Volatile
 import net.imglib2.converter.Converter
 import net.imglib2.realtransform.AffineTransform3D
@@ -33,6 +34,7 @@ import net.imglib2.type.numeric.RealType
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.janelia.saalfeldlab.fx.TitledPanes
 import org.janelia.saalfeldlab.fx.actions.ActionSet
+import org.janelia.saalfeldlab.fx.actions.KeyAction.Companion.onAction
 import org.janelia.saalfeldlab.fx.extensions.TitledPaneExtensions
 import org.janelia.saalfeldlab.fx.extensions.createObservableBinding
 import org.janelia.saalfeldlab.fx.extensions.createValueBinding
@@ -125,6 +127,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     private val converter = HighlightingStreamConverter.forType(stream, dataSource.type)
 
+
     override fun converter(): HighlightingStreamConverter<T> = converter
     val meshManager = MeshManagerWithAssignmentForSegments.fromBlockLookup(
         source,
@@ -171,7 +174,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     override fun compositeProperty(): ObjectProperty<Composite<ARGBType, ARGBType>> = _composite
 
-    fun nextId() = idSelectorHandler.nextId(false)
+    fun nextId(activate: Boolean = false) = idSelectorHandler.nextId(activate)
 
     // source name
     private val _name = SimpleStringProperty(name)
@@ -198,6 +201,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
     // flood fill state
     internal val floodFillState = SimpleObjectProperty<FloodFillState>()
 
+    //Brush properties
+    internal val brushProperties = BrushProperties()
+
     // display status
     private val displayStatus: HBox = createDisplayStatus(dataSource, floodFillState, selectedIds, fragmentSegmentAssignment, stream)
     override fun getDisplayStatus(): Node = displayStatus
@@ -206,34 +212,13 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
     private val globalActions = listOf(
         ActionSet("Connectomics Label State Global Actions") {
-            KEY_PRESSED {
-                consume = true
-                keyMatchesBinding(keyBindings, LabelSourceStateKeys.REFRESH_MESHES)
-                onAction { refreshMeshes().also { LOG.debug("Key event triggered refresh meshes") } }
+            KEY_PRESSED.onAction(keyBindings, LabelSourceStateKeys.REFRESH_MESHES) { refreshMeshes().also { LOG.debug("Key event triggered refresh meshes") } }
+            KEY_PRESSED.onAction(keyBindings, LabelSourceStateKeys.TOGGLE_NON_SELECTED_LABELS_VISIBILITY) {
+                showOnlySelectedInStreamToggle.toggleNonSelectionVisibility()
+                paintera.baseView.orthogonalViews().requestRepaint()
             }
-            KEY_PRESSED {
-                consume = true
-                keyMatchesBinding(keyBindings, LabelSourceStateKeys.CANCEL_3D_FLOODFILL)
-                onAction { floodFillState.get()?.interrupt?.run() }
-            }
-            KEY_PRESSED {
-                consume = true
-                keyMatchesBinding(keyBindings, LabelSourceStateKeys.TOGGLE_NON_SELECTED_LABELS_VISIBILITY)
-                onAction {
-                    showOnlySelectedInStreamToggle.toggleNonSelectionVisibility()
-                    paintera.baseView.orthogonalViews().requestRepaint()
-                }
-            }
-            KEY_PRESSED {
-                consume = true
-                keyMatchesBinding(keyBindings, LabelSourceStateKeys.ARGB_STREAM_INCREMENT_SEED)
-                onAction { streamSeedSetter.incrementStreamSeed() }
-            }
-            KEY_PRESSED {
-                consume = true
-                keyMatchesBinding(keyBindings, LabelSourceStateKeys.ARGB_STREAM_DECREMENT_SEED)
-                onAction { streamSeedSetter.decrementStreamSeed() }
-            }
+            KEY_PRESSED.onAction(keyBindings, LabelSourceStateKeys.ARGB_STREAM_INCREMENT_SEED) { streamSeedSetter.incrementStreamSeed() }
+            KEY_PRESSED.onAction(keyBindings, LabelSourceStateKeys.ARGB_STREAM_DECREMENT_SEED) { streamSeedSetter.decrementStreamSeed() }
         },
         commitHandler.makeActionSet(keyBindings, paintera.baseView)
     )
@@ -248,9 +233,13 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
     override fun getGlobalActionSets(): List<ActionSet> = globalActions
 
 
-    private fun requestRepaint(paintera: PainteraBaseView) {
+    private fun requestRepaint(paintera: PainteraBaseView, interval: RealInterval? = null) {
         if (isVisible && Paintera.paintable) {
-            paintera.orthogonalViews().requestRepaint()
+            interval?.let {
+                paintera.orthogonalViews().requestRepaint(it)
+            } ?: let {
+                paintera.orthogonalViews().requestRepaint()
+            }
         }
     }
 
@@ -329,7 +318,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
             converter(),
             meshManager,
             meshManager.managedSettings,
-            null
+            brushProperties
         ).node.let { if (it is VBox) it else VBox(it) }
 
         val backendMeta = backend.createMetaDataNode()
@@ -484,13 +473,10 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
         @JvmStatic
         fun checkForLabelMultisetType(fragmentsInSelectedSegments: FragmentsInSelectedSegments): Predicate<LabelMultisetType> {
+
             return Predicate { lmt ->
-                lmt.entrySet().forEach {
-                    if (fragmentsInSelectedSegments.contains(it.element.id())) {
-                        return@Predicate true
-                    }
-                }
-                return@Predicate false
+
+                lmt.entrySet().any { fragmentsInSelectedSegments.contains(it.element.id()) }
             }
         }
 
@@ -653,11 +639,10 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
                             labelBlockLookup
                         )
                         return state.apply {
-
                             get<Long>(LAST_SELECTION) { selectedIds.activateAlso(it) }
                             get<JsonObject>(CONVERTER) { converter ->
                                 converter.apply {
-                                    get<JsonObject>(CONVERTER_USER_SPECIFIED_COLORS) { toColorMap().forEach { (id, c) -> state.converter.setColor(id, c) } }
+                                    get<JsonObject>(CONVERTER_USER_SPECIFIED_COLORS) { it.toColorMap().forEach { (id, c) -> state.converter.setColor(id, c) } }
                                     get<Long>(CONVERTER_SEED) { seed -> state.converter.seedProperty().set(seed) }
                                 }
                             }
@@ -677,7 +662,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
         }
 
         companion object {
-            private fun JsonObject.toColorMap() = this.keySet().map { Pair(it.toLong(), Color.web(this[it].asString)) }
+            private fun JsonObject.toColorMap() = this.keySet().map {
+                Pair(it.toLong(), Color.web(this[it].asString))
+            }
         }
 
     }

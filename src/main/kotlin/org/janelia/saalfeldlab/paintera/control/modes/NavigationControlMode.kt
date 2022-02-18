@@ -9,7 +9,7 @@ import javafx.scene.input.*
 import javafx.scene.input.KeyEvent.KEY_PRESSED
 import net.imglib2.realtransform.AffineTransform3D
 import org.janelia.saalfeldlab.fx.actions.*
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.fx.extensions.invoke
 import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.paintera.NavigationKeys
@@ -33,17 +33,13 @@ object NavigationControlMode : AbstractToolMode() {
      * Intentianally empty. [NavigationControlMode] has only one tool, which contains all the Navigation actions.
      * It will always be active when [NavigationControlMode] is the active mode.
      */
-    override val toolTriggers = listOf<ActionSet>()
+    override val modeActions = listOf<ActionSet>()
 
     override val allowedActions = AllowedActions.NAVIGATION
 
     override fun enter() {
         super.enter()
         switchTool(NavigationTool)
-    }
-
-    override fun exit() {
-        super.exit()
     }
 }
 
@@ -85,7 +81,6 @@ object NavigationTool : ViewerTool() {
         super.activate()
     }
 
-
     override fun deactivate() {
         super.deactivate()
         allowRotationsProperty.unbind()
@@ -97,7 +92,7 @@ object NavigationTool : ViewerTool() {
     }
 
 
-    override val actionSets by LazyForeignMap({ activeViewerAndTransforms }) { viewerAndTransforms ->
+    override val actionSets by LazyForeignValue({ activeViewerAndTransforms }) { viewerAndTransforms ->
         viewerAndTransforms?.run {
 
             val viewerTransform = AffineTransform3D().apply {
@@ -169,7 +164,7 @@ object NavigationTool : ViewerTool() {
 
     private fun getTranslateAlongNormalScrollActions(normalTranslationController: TranslateAlongNormal): ActionSet {
         data class ScrollSpeedStruct(val name: String, val speed: Double, val keysInit: Action<ScrollEvent>.() -> Unit)
-        return PainteraActionSet(NavigationActionType.Scroll, "translate along normal") {
+        return PainteraActionSet("translate along normal", NavigationActionType.Slice) {
             listOf(
                 ScrollSpeedStruct("default", DEFAULT) { keysDown() },
                 ScrollSpeedStruct("fast", FAST) { keysDown(KeyCode.SHIFT) },
@@ -185,7 +180,7 @@ object NavigationTool : ViewerTool() {
     }
 
     private fun getRemoveRotationAction(removeRotationController: RemoveRotation, mouseXIfInsideElseCenterX: DoubleBinding, mouseYIfInsideElseCenterY: DoubleBinding): ActionSet {
-        return PainteraActionSet(NavigationActionType.Rotate, NavigationKeys.REMOVE_ROTATION) {
+        return PainteraActionSet(NavigationKeys.REMOVE_ROTATION, NavigationActionType.Rotate) {
             KEY_PRESSED {
                 keyMatchesBinding(keyBindings, NavigationKeys.REMOVE_ROTATION)
                 onAction { removeRotationController.removeRotationCenteredAt(mouseXIfInsideElseCenterX.get(), mouseYIfInsideElseCenterY.get()) }
@@ -195,7 +190,7 @@ object NavigationTool : ViewerTool() {
 
     private fun getTranslateAlongNormalKeyActions(translateAlongNormal: TranslateAlongNormal): ActionSet {
         data class TranslateNormalStruct(val step: Double, val speed: Double, val keyName: String)
-        return PainteraActionSet(NavigationActionType.Scroll, "translate along normal") {
+        return PainteraActionSet("translate along normal", NavigationActionType.Slice) {
             listOf(
                 TranslateNormalStruct(1.0, DEFAULT, NavigationKeys.BUTTON_TRANSLATE_ALONG_NORMAL_BACKWARD),
                 TranslateNormalStruct(1.0, FAST, NavigationKeys.BUTTON_TRANSLATE_ALONG_NORMAL_BACKWARD_FAST),
@@ -213,14 +208,14 @@ object NavigationTool : ViewerTool() {
     }
 
     private fun getTranslateInPlaneDragAction(translateXYController: TranslateWithinPlane) =
-        PainteraDragActionSet(NavigationActionType.Drag, "translate xy") {
+        PainteraDragActionSet(NavigationActionType.Pan, "translate xy") {
             verify { it.isSecondaryButtonDown }
-            handleDragDetected { translateXYController.init() }
-            handleDrag { translateXYController.translate(it.x - startX, it.y - startY) }
+            onDragDetected { translateXYController.init() }
+            onDrag { translateXYController.translate(it.x - startX, it.y - startY) }
         }
 
     private fun getZoomScrollActions(zoomController: Zoom): ActionSet {
-        return PainteraActionSet(NavigationActionType.Zoom, "zoom") {
+        return PainteraActionSet("zoom", NavigationActionType.Zoom) {
             listOf(
                 arrayOf(KeyCode.META),
                 arrayOf(KeyCode.CONTROL, KeyCode.SHIFT)
@@ -235,7 +230,7 @@ object NavigationTool : ViewerTool() {
 
 
     private fun getZoomKeyActions(zoomController: Zoom, mouseXIfInsideElseCenterX: DoubleBinding, mouseYIfInsideElseCenterY: DoubleBinding): ActionSet {
-        return PainteraActionSet(NavigationActionType.Zoom, "zoom") {
+        return PainteraActionSet("zoom", NavigationActionType.Zoom) {
             listOf(
                 1.0 to NavigationKeys.BUTTON_ZOOM_OUT,
                 1.0 to NavigationKeys.BUTTON_ZOOM_OUT2,
@@ -303,7 +298,7 @@ object NavigationTool : ViewerTool() {
         displayTransform: AffineTransform3D,
         globalToViewerTransform: AffineTransform3D
     ): ActionSet {
-        return PainteraActionSet(NavigationActionType.Rotate, "rotate") {
+        return PainteraActionSet("rotate", NavigationActionType.Rotate) {
             arrayOf(
                 buttonRotationSpeedConfig.regular to mapOf(
                     -1 to NavigationKeys.KEY_ROTATE_LEFT,
@@ -339,7 +334,7 @@ object NavigationTool : ViewerTool() {
 
 
     private fun getSetRotationAxisActions(keyRotationAxis: SimpleObjectProperty<KeyRotate.Axis>) =
-        PainteraActionSet(NavigationActionType.Rotate, "set rotation axis") {
+        PainteraActionSet("set rotation axis", NavigationActionType.Rotate) {
             arrayOf(
                 KeyRotate.Axis.X to NavigationKeys.SET_ROTATION_AXIS_X,
                 KeyRotate.Axis.Y to NavigationKeys.SET_ROTATION_AXIS_Y,
@@ -367,8 +362,8 @@ object NavigationTool : ViewerTool() {
         return PainteraDragActionSet(NavigationActionType.Rotate, name) {
             verify { it.isPrimaryButtonDown }
             dragDetectedAction.verify { allowRotations() }
-            handleDragDetected { rotate.initialize() }
-            handleDrag { rotate.rotate(it.x, it.y, startX, startY) }
+            onDragDetected { rotate.initialize() }
+            onDrag { rotate.rotate(it.x, it.y, startX, startY) }
         }
     }
 

@@ -106,7 +106,6 @@ public class MultiBoxOverlayRendererFX implements OverlayRendererGeneric<Graphic
   }
 
   public synchronized void paint(final GraphicsContext g) {
-
 	box.paint(g, boxSources, virtualScreenInterval, boxInterval);
   }
 

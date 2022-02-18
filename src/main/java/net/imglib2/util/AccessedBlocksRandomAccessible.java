@@ -23,7 +23,6 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.AbstractConvertedRandomAccess;
 import net.imglib2.img.cell.CellGrid;
 
-import java.util.Arrays;
 import java.util.stream.IntStream;
 
 /**
@@ -104,8 +103,15 @@ public class AccessedBlocksRandomAccessible<T> extends AbstractWrappedInterval<R
 	@Override
 	public T get() {
 
-	  Arrays.setAll(blockGridPosition, d -> source.getLongPosition(d) / blockSize[d]);
-	  addBlockId(IntervalIndexer.positionToIndex(blockGridPosition, blockGridDimensions));
+	  /* Calculate the blockId from the current grid position and dimension.
+	   * NOTE: Previously we used IntervalIndexer.positionToIndex, but this was SLOW, since it required us to pass in the `blockGridPosition`
+	   * 	as an array. Arrays.setAll was taking an obnoxious about of time. */
+
+	  final int maxDim = blockGridDimensions.length - 1;
+	  long blockId = (source.getLongPosition(maxDim) / blockSize[maxDim]);
+	  for (int d = maxDim - 1; d >= 0; --d)
+		blockId = blockId * blockGridDimensions[d] + (source.getLongPosition(d) / blockSize[d]);
+	  addBlockId(blockId);
 	  return source.get();
 	}
 

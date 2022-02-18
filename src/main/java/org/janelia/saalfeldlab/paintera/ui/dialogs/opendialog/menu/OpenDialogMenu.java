@@ -119,7 +119,7 @@ public class OpenDialogMenu extends AbstractService implements SciJavaService {
 		  final KeyCode... keys) {
 
 	final var menuText = "Open dataset";
-	return new PainteraActionSet(MenuActionType.AddSource, menuText, actionSet -> {
+	return new PainteraActionSet(menuText, MenuActionType.AddSource, actionSet -> {
 	  actionSet.addKeyAction(KeyEvent.KEY_PRESSED, keyAction -> {
 		keyAction.keysDown(keys);
 		keyAction.onAction(event -> {

@@ -54,7 +54,6 @@ class LabelSourceStatePaintHandler<T : IntegerType<T>?>(
 //        LOG.debug("Making handler with PainterBaseView {} key Tracker {} and ViewerPanelFX {}", baseView, keyTracker, viewer)
 //        val paint2D = PaintActions2D(viewer, baseView.manager()).apply {
 //            brushRadiusProperty().bindBidirectional(brushProperties.brushRadiusProperty)
-//            brushRadiusScaleProperty().bindBidirectional(brushProperties.brushRadiusScaleProperty)
 //            brushDepthProperty().bindBidirectional(brushProperties.brushDepthProperty)
 //        }
 //        painters[viewer] = paint2D

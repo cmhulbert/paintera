@@ -4,12 +4,12 @@ import bdv.fx.viewer.ViewerPanelFX;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ObservableValue;
-import javafx.scene.Node;
+import javafx.scene.input.MouseEvent;
 import net.imglib2.RealPoint;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.ui.TransformListener;
-import org.janelia.saalfeldlab.fx.event.EventFX;
-import org.janelia.saalfeldlab.fx.event.InstallAndRemove;
+import org.janelia.saalfeldlab.fx.actions.ActionSet;
+import org.janelia.saalfeldlab.fx.actions.PainteraActionSet;
 import org.janelia.saalfeldlab.fx.ortho.OrthogonalViews;
 import org.janelia.saalfeldlab.paintera.control.navigation.CoordinateDisplayListener;
 
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 
 public class OrthoViewCoordinateDisplayListener {
 
-  private final Map<ViewerPanelFX, InstallAndRemove<Node>> listeners = new HashMap<>();
+  private final Map<ViewerPanelFX, PainteraActionSet> listeners = new HashMap<>();
 
   private final Map<ViewerPanelFX, TransformListener<AffineTransform3D>> transformListeners = new HashMap<>();
 
@@ -50,24 +50,33 @@ public class OrthoViewCoordinateDisplayListener {
   public void addHandlers(ViewerPanelFX viewer) {
 
 	if (!this.listeners.containsKey(viewer)) {
-	  final CoordinateDisplayListener coordinateListener =
-			  new CoordinateDisplayListener(viewer, submitViewerCoordinate, submitWorldCoordinate);
-	  listeners.put(viewer, EventFX.MOUSE_MOVED("coordinate update", e -> coordinateListener.update(e.getX(), e.getY())));
-	  final TransformListener<AffineTransform3D> transformListener = transform -> {
-		final double[] mouseCoordinates = new double[]{viewer.getMouseXProperty().get(), viewer.getMouseYProperty().get(), 0.0};
-		submitViewerCoordinate.accept(new RealPoint(mouseCoordinates));
-		viewer.displayToGlobalCoordinates(mouseCoordinates);
-		submitWorldCoordinate.accept(new RealPoint(mouseCoordinates));
-	  };
-	  this.transformListeners.put(viewer, transformListener);
+	  final CoordinateDisplayListener coordinateListener = new CoordinateDisplayListener(viewer, submitViewerCoordinate, submitWorldCoordinate);
+	  final var coordinateUpdate = new PainteraActionSet("coordinate update", null, actionSet -> {
+		actionSet.addMouseAction(MouseEvent.MOUSE_MOVED, action -> {
+		  action.ignoreKeys();
+		  action.onAction(event -> coordinateListener.update(event.getX(), event.getY()));
+		});
+	  });
+	  listeners.put(viewer, coordinateUpdate);
+	  this.transformListeners.put(viewer, getTransformListener(viewer));
 	}
-	listeners.get(viewer).installInto(viewer);
+	ActionSet.installActionSet(viewer, listeners.get(viewer));
 	viewer.addTransformListener(transformListeners.get(viewer));
+  }
+
+  private TransformListener<AffineTransform3D> getTransformListener(ViewerPanelFX viewer) {
+
+	return transform -> {
+	  final double[] mouseCoordinates = new double[]{viewer.getMouseXProperty().get(), viewer.getMouseYProperty().get(), 0.0};
+	  submitViewerCoordinate.accept(new RealPoint(mouseCoordinates));
+	  viewer.displayToGlobalCoordinates(mouseCoordinates);
+	  submitWorldCoordinate.accept(new RealPoint(mouseCoordinates));
+	};
   }
 
   public void removeHandlers(ViewerPanelFX viewer) {
 
-	listeners.get(viewer).removeFrom(viewer);
+	ActionSet.removeActionSet(viewer, listeners.get(viewer));
 	viewer.removeTransformListener(transformListeners.get(viewer));
 	submitViewerCoordinate.accept(null);
 	submitWorldCoordinate.accept(null);

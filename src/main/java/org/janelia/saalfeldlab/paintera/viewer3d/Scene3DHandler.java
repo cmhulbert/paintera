@@ -1,7 +1,5 @@
 package org.janelia.saalfeldlab.paintera.viewer3d;
 
-import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Point3D;
@@ -15,7 +13,8 @@ import javafx.scene.transform.Affine;
 import javafx.stage.FileChooser;
 import net.imglib2.Interval;
 import net.imglib2.ui.TransformListener;
-import org.janelia.saalfeldlab.fx.event.MouseDragFX;
+import org.janelia.saalfeldlab.fx.actions.ActionSet;
+import org.janelia.saalfeldlab.fx.actions.DragActionSet;
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread;
 import org.janelia.saalfeldlab.paintera.control.ControlUtils;
 import org.slf4j.Logger;
@@ -29,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 public class Scene3DHandler {
 
@@ -61,25 +59,21 @@ public class Scene3DHandler {
 	this.setAffine(initialTransform);
 	addCommands();
 
-	final Rotate rotate = new Rotate(
-			"rotate 3d",
-			new SimpleDoubleProperty(1.0),
-			1.0,
-			MouseEvent::isPrimaryButtonDown
-	);
-	rotate.installInto(viewer);
+	final var rotateActionSet = new Rotate3DView("rotate 3d");
+	ActionSet.installActionSet(viewer, rotateActionSet);
 
-	final TranslateXY translateXY = new TranslateXY("translate", MouseEvent::isSecondaryButtonDown);
-	translateXY.installIntoAsFilter(viewer);
+	final var translateXYActionSet = new TranslateXY("translate");
+	ActionSet.installActionSet(viewer, translateXYActionSet);
   }
+
 
   public void setInitialTransformToInterval(final Interval interval) {
 
 	initialTransform.setToIdentity();
 	initialTransform.prependTranslation(
-			-interval.min(0) - interval.dimension(0) / 2,
-			-interval.min(1) - interval.dimension(1) / 2,
-			-interval.min(2) - interval.dimension(2) / 2);
+			-interval.min(0) - interval.dimension(0) / 2.0,
+			-interval.min(1) - interval.dimension(1) / 2.0,
+			-interval.min(2) - interval.dimension(2) / 2.0);
 	final double sf = 1.0 / interval.dimension(0);
 	initialTransform.prependScale(sf, sf, sf);
 	InvokeOnJavaFXApplicationThread.invoke(() -> this.setAffine(initialTransform));
@@ -129,104 +123,23 @@ public class Scene3DHandler {
 	});
   }
 
-  //FIXME: use rotateActionSet?
-  //  private ActionSet rotateActionSet() {
-  //
-  //	return new PainteraDragActionSet(NavigationActionType.Rotate, "rotate 3d", dragActionSet -> {
-  //	  final var factor = new SimpleDoubleProperty();
-  //	  final var speed = new SimpleDoubleProperty();
-  //	  dragActionSet.getDragDetectedAction().onAction(event -> {
-  //		factor.set(1.0);
-  //		if (event.isShiftDown()) {
-  //		  factor.set(.1);
-  //		  if (event.isControlDown()) {
-  //			factor.set(2.0);
-  //		  }
-  //		}
-  //	  });
-  //	});
-  //  }
+  private class TranslateXY extends DragActionSet {
 
-  private class Rotate extends MouseDragFX {
+	public TranslateXY(String name) {
 
-	private final SimpleDoubleProperty speed = new SimpleDoubleProperty();
-
-	private final SimpleDoubleProperty factor = new SimpleDoubleProperty();
-
-	private final static double SLOW_FACTOR = 0.1;
-
-	private final static double NORMAL_FACTOR = 1;
-
-	private final static double FAST_FACTOR = 2;
-
-	private final Affine affineDragStart = new Affine();
-
-	public Rotate(final String name, final DoubleProperty speed, final double factor, final Predicate<MouseEvent> eventFilter) {
-
-	  super(name, eventFilter, true, false);
-	  LOG.trace("rotation");
-	  this.factor.set(factor);
-	  this.speed.set(speed.get() * this.factor.get());
-
-	  speed.addListener((obs, old, newv) -> this.speed.set(this.factor.get() * speed.get()));
-	  this.factor.addListener((obs, old, newv) -> this.speed.set(speed.get()));
+	  super(name);
+	  /* only on right click */
+	  verify(MouseEvent::isSecondaryButtonDown);
+	  /* trigger as filters */
+	  getDragDetectedAction().setFilter(true);
+	  getDragAction().setFilter(true);
+	  getDragReleaseAction().setFilter(true);
+	  /* don't update XY*/
+	  setUpdateXY(false);
+	  onDrag(this::drag);
 	}
 
-	@Override
-	public void initDrag(final javafx.scene.input.MouseEvent event) {
-
-	  factor.set(NORMAL_FACTOR);
-
-	  if (event.isShiftDown()) {
-		if (event.isControlDown()) {
-		  factor.set(SLOW_FACTOR);
-		} else {
-		  factor.set(FAST_FACTOR);
-		}
-	  }
-
-	  this.speed.set(speed.get() * this.factor.get());
-
-	  synchronized (affine) {
-		affineDragStart.setToTransform(affine);
-	  }
-	}
-
-	@Override
-	public void drag(final javafx.scene.input.MouseEvent event) {
-
-	  synchronized (affine) {
-		LOG.trace("drag - rotate");
-		final Affine target = new Affine(affineDragStart);
-		final double dX = event.getX() - getStartX();
-		final double dY = event.getY() - getStartY();
-		final double v = step * this.speed.get();
-		LOG.trace("dx: {} dy: {}", dX, dY);
-
-		target.prependRotation(v * dY, CENTER_X, CENTER_Y, 0, xNormal);
-		target.prependRotation(v * -dX, CENTER_X, CENTER_Y, 0, yNormal);
-
-		LOG.trace("target: {}", target);
-		InvokeOnJavaFXApplicationThread.invoke(() -> setAffine(target));
-	  }
-	}
-  }
-
-  private class TranslateXY extends MouseDragFX {
-
-	public TranslateXY(final String name, final Predicate<MouseEvent> eventFilter) {
-
-	  super(name, eventFilter, true, false);
-	  LOG.trace("translate");
-	}
-
-	@Override
-	public void initDrag(final MouseEvent event) {
-
-	}
-
-	@Override
-	public void drag(final MouseEvent event) {
+	private void drag(MouseEvent event) {
 
 	  synchronized (affine) {
 		LOG.trace("drag - translate");
@@ -242,6 +155,69 @@ public class Scene3DHandler {
 
 		setStartX(getStartX() + dX);
 		setStartY(getStartY() + dY);
+	  }
+	}
+  }
+
+  private class Rotate3DView extends DragActionSet {
+
+	private double baseSpeed = 1.0;
+	private double factor = 1.0;
+
+	private double speed = baseSpeed * factor;
+
+	private final static double SLOW_FACTOR = 0.1;
+
+	private final static double NORMAL_FACTOR = 1;
+
+	private final static double FAST_FACTOR = 2;
+
+	private final Affine affineDragStart = new Affine();
+
+	public Rotate3DView(String name) {
+
+	  super(name);
+	  LOG.trace(name);
+	  verify(MouseEvent::isPrimaryButtonDown);
+	  setUpdateXY(false);
+	  onDragDetected(this::dragDetected);
+	  onDrag(this::drag);
+	}
+
+	private void dragDetected(MouseEvent event) {
+
+	  factor = NORMAL_FACTOR;
+
+	  if (event.isShiftDown()) {
+		if (event.isControlDown()) {
+		  factor = SLOW_FACTOR;
+		} else {
+		  factor = FAST_FACTOR;
+		}
+	  }
+
+	  speed = baseSpeed * factor;
+
+	  synchronized (affine) {
+		affineDragStart.setToTransform(affine);
+	  }
+	}
+
+	private void drag(MouseEvent event) {
+
+	  synchronized (affine) {
+		LOG.trace("drag - rotate");
+		final Affine target = new Affine(affineDragStart);
+		final double dX = event.getX() - getStartX();
+		final double dY = event.getY() - getStartY();
+		final double v = step * this.speed;
+		LOG.trace("dx: {} dy: {}", dX, dY);
+
+		target.prependRotation(v * dY, CENTER_X, CENTER_Y, 0, xNormal);
+		target.prependRotation(v * -dX, CENTER_X, CENTER_Y, 0, yNormal);
+
+		LOG.trace("target: {}", target);
+		InvokeOnJavaFXApplicationThread.invoke(() -> setAffine(target));
 	  }
 	}
   }

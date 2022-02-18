@@ -28,9 +28,9 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.AccessBoxRandomAccessible;
 import net.imglib2.util.Pair;
 import net.imglib2.view.Views;
-import org.janelia.saalfeldlab.paintera.data.mask.Mask;
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo;
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource;
+import org.janelia.saalfeldlab.paintera.data.mask.SourceMask;
 import org.janelia.saalfeldlab.paintera.data.mask.exception.MaskInUse;
 import org.janelia.saalfeldlab.paintera.state.SourceInfo;
 import org.janelia.saalfeldlab.paintera.state.SourceState;
@@ -193,15 +193,15 @@ public class RestrictPainting {
 
 	final RandomAccessibleInterval<T> background = source.getReadOnlyDataBackground(time,
 			level);
-	final MaskInfo<UnsignedLongType> maskInfo = new MaskInfo<>(
+	final MaskInfo maskInfo = new MaskInfo(
 			time,
 			level,
 			new UnsignedLongType(Label.TRANSPARENT)
 	);
 
-	final Mask<UnsignedLongType> mask = source.generateMask(maskInfo, FOREGROUND_CHECK);
+	final SourceMask mask = source.generateMask(maskInfo, FOREGROUND_CHECK);
 	final AccessBoxRandomAccessible<UnsignedLongType> accessTracker = new AccessBoxRandomAccessible<>(Views
-			.extendValue(mask.mask, new UnsignedLongType(1)));
+			.extendValue(mask.getRai(), new UnsignedLongType(1)));
 
 
 	final RandomAccess<T> backgroundAccess = background.randomAccess();
@@ -247,10 +247,10 @@ public class RestrictPainting {
 	}
 
 	final RandomAccessibleInterval<LabelMultisetType> background = source.getReadOnlyDataBackground(time, level);
-	final MaskInfo<UnsignedLongType> maskInfo = new MaskInfo<>(time, level, new UnsignedLongType(Label.TRANSPARENT));
-	final Mask<UnsignedLongType> mask = source.generateMask(maskInfo, FOREGROUND_CHECK);
+	final MaskInfo maskInfo = new MaskInfo(time, level, new UnsignedLongType(Label.TRANSPARENT));
+	final SourceMask mask = source.generateMask(maskInfo, FOREGROUND_CHECK);
 	final AccessBoxRandomAccessible<UnsignedLongType> accessTracker = new AccessBoxRandomAccessible<>(Views
-			.extendValue(mask.mask, new UnsignedLongType(1)));
+			.extendValue(mask.getRai(), new UnsignedLongType(1)));
 
 	final RandomAccess<LabelMultisetType> backgroundAccess = background.randomAccess();
 	backgroundAccess.setPosition(seed);

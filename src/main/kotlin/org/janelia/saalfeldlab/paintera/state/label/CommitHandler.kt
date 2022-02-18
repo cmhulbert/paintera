@@ -6,6 +6,7 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.CheckBox
 import javafx.scene.input.KeyEvent.KEY_PRESSED
 import javafx.scene.layout.VBox
+import org.janelia.saalfeldlab.fx.actions.KeyAction.Companion.onAction
 import org.janelia.saalfeldlab.fx.actions.NamedKeyCombination
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
 import org.janelia.saalfeldlab.paintera.LabelSourceStateKeys
@@ -21,11 +22,9 @@ import java.util.function.BiFunction
 
 class CommitHandler<S : SourceState<*, *>>(private val state: S, private val fragmentProvider: () -> FragmentSegmentAssignmentState) {
 
-    internal fun makeActionSet(bindings: NamedKeyCombination.CombinationMap, paintera: PainteraBaseView) = PainteraActionSet(MenuActionType.CommitCanvas, LabelSourceStateKeys.COMMIT_DIALOG) {
-        KEY_PRESSED {
-            consume = true
-            keyMatchesBinding(bindings, LabelSourceStateKeys.COMMIT_DIALOG)
-            onAction { showCommitDialog(state, paintera.sourceInfo().indexOf(state.dataSource), true, fragmentSegmentAssignmentState = fragmentProvider()) }
+    internal fun makeActionSet(bindings: NamedKeyCombination.CombinationMap, paintera: PainteraBaseView) = PainteraActionSet(LabelSourceStateKeys.COMMIT_DIALOG, MenuActionType.CommitCanvas) {
+        KEY_PRESSED.onAction(bindings, LabelSourceStateKeys.COMMIT_DIALOG) {
+            showCommitDialog(state, paintera.sourceInfo().indexOf(state.dataSource), true, fragmentSegmentAssignmentState = fragmentProvider())
         }
     }
 

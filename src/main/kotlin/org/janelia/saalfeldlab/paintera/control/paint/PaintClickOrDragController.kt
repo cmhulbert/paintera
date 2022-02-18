@@ -1,36 +1,31 @@
 package org.janelia.saalfeldlab.paintera.control.paint
 
 import bdv.fx.viewer.ViewerPanelFX
+import bdv.util.Affine3DHelpers
+import javafx.beans.property.SimpleLongProperty
+import javafx.beans.value.ChangeListener
 import javafx.scene.input.MouseEvent
-import net.imglib2.FinalInterval
 import net.imglib2.Interval
-import net.imglib2.RandomAccessibleInterval
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.label.Label
 import net.imglib2.type.numeric.integer.UnsignedLongType
-import net.imglib2.util.Intervals
 import net.imglib2.util.LinAlgHelpers
-import net.imglib2.view.Views
+import org.janelia.saalfeldlab.fx.extensions.nonnull
 import org.janelia.saalfeldlab.fx.ui.Exceptions.Companion.exceptionAlert
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.paintera.Constants
 import org.janelia.saalfeldlab.paintera.PainteraBaseView
-import org.janelia.saalfeldlab.paintera.data.mask.Mask
+import org.janelia.saalfeldlab.paintera.control.paint.ViewerMask.Companion.setNewViewerMask
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.exception.PainteraException
+import org.janelia.saalfeldlab.paintera.util.IntervalHelpers.Companion.asRealInterval
 import org.janelia.saalfeldlab.paintera.util.IntervalHelpers.Companion.extendAndTransformBoundingBox
+import org.janelia.saalfeldlab.paintera.util.IntervalHelpers.Companion.smallestContainingInterval
+import org.janelia.saalfeldlab.util.union
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
 import java.util.function.Predicate
-
-infix fun Interval.union(other: Interval): Interval = Intervals.union(this, other)
-
-operator fun Interval.plus(other: Interval?): Interval {
-    return other?.let {
-        Intervals.union(this, other)
-    } ?: FinalInterval(this)
-}
 
 private data class Postion(var x: Double = 0.0, var y: Double = 0.0) {
 
@@ -92,11 +87,30 @@ class PaintClickOrDragController(
             when {
                 !isPainting -> LOG.debug("Not currently painting -- will not do anything")
                 paintIntoThis == null -> LOG.debug("No current source available -- will not do anything")
+                !submitMask -> {
+                    LOG.debug("submitMask flag: $submitMask")
+                    isPainting = false
+                }
                 else -> try {
-                    paintIntoThis!!.applyMask(mask, interval, FOREGROUND_CHECK)
+                    with(paintIntoThis!!) {
+                        viewerMask?.let { mask ->
+                            val sourceInterval = extendAndTransformBoundingBox(viewerInterval!!.asRealInterval, mask.currentSourceToViewerTransform.inverse(), .5)
+                            val repaintInterval = extendAndTransformBoundingBox(sourceInterval.smallestContainingInterval, mask.initialSourceToGlobalTransform, 0.5)
+                            applyMask(currentMask, sourceInterval.smallestContainingInterval, FOREGROUND_CHECK)
+                            var refreshAfterApplyingMask: ChangeListener<Boolean>? = null
+                            refreshAfterApplyingMask = ChangeListener<Boolean> { obs, _, isApplyingMask ->
+                                if (!isApplyingMask) {
+                                    paintera.orthogonalViews().requestRepaint(repaintInterval)
+                                    obs.removeListener(refreshAfterApplyingMask!!)
+                                }
+                            }
+                            isApplyingMaskProperty.addListener(refreshAfterApplyingMask)
+                        }
+                    }
                 } catch (e: Exception) {
                     InvokeOnJavaFXApplicationThread { exceptionAlert(Constants.NAME, "Exception when trying to submit mask.", e).show() }
                 } finally {
+                    viewerMask?.disable()
                     release()
                 }
             }
@@ -105,18 +119,39 @@ class PaintClickOrDragController(
 
     class IllegalIdForPainting(val id: Long?) : PainteraException("Cannot paint this id: $id")
 
+    private var fillLabelSetManually: Boolean = false
+
     @get:Synchronized
     private var isPainting = false
 
-    private var mask: Mask<UnsignedLongType>? = null
-
     private var paintIntoThis: MaskedSource<*, *>? = null
-    private var fillLabel: Long = 0
-    private var interval: Interval? = null
-    private val labelToGlobalTransform = AffineTransform3D()
-    private val labelToViewerTransform = AffineTransform3D()
-    private val globalToViewerTransform = AffineTransform3D()
+
+    var fillLabelProperty = SimpleLongProperty(0)
+    private var fillLabel by fillLabelProperty.nonnull()
+    internal var viewerInterval: Interval? = null
     private val position = Postion()
+
+    var viewerMask: ViewerMask? = null
+    private var submitMask = true
+
+
+    internal fun provideMask(viewerMask: ViewerMask) {
+        submitMask = false
+        this.viewerMask = viewerMask
+    }
+
+    fun isPainting(): Boolean {
+        return isPainting
+    }
+
+    fun getViewerMipMapLevel(): Int {
+        (paintera.sourceInfo().currentSourceProperty().get() as MaskedSource<*, *>).let { currentSource ->
+            val screenScaleTransform = AffineTransform3D().also {
+                viewer.renderUnit.getScreenScaleTransform(0, it)
+            }
+            return viewer.state.getBestMipMapLevel(screenScaleTransform, currentSource)
+        }
+    }
 
     fun startPaint(event: MouseEvent) {
         LOG.debug("Starting New Paint", event)
@@ -136,24 +171,60 @@ class PaintClickOrDragController(
                         state.getViewerTransform(viewerTransform)
                         state.getBestMipMapLevel(screenScaleTransform, currentSource)
                     }
-                    currentSource.getSourceTransform(0, level, labelToGlobalTransform)
-                    labelToViewerTransform.set(viewerTransform.copy().concatenate(labelToGlobalTransform))
-                    globalToViewerTransform.set(viewerTransform)
-                    val id = paintId() ?: throw IllegalIdForPainting(null)
-                    mask = currentSource.generateMask(MaskInfo(0, level, UnsignedLongType(id)), FOREGROUND_CHECK)
+
+                    /* keep and set mask on source, or generate new and set  */
+                    when {
+                        viewerMask == null -> {
+                            generateViewerMask(level, currentSource)
+                        }
+                        currentSource.currentMask == null -> {
+                            viewerMask!!.setViewerMaskOnSource()
+                        }
+                        else -> LOG.trace("Viewer Mask was Provided, but source already has a mask. Doing Nothing. ")
+                    }
+
                     isPainting = true
-                    fillLabel = 1
-                    interval = null
+                    if (!fillLabelSetManually) {
+                        ++fillLabel
+                    }
+                    viewerInterval = null
                     paintIntoThis = currentSource
                     position.update(event)
                     paint(position)
                 }
             } catch (e: Exception) {
                 // Ensure we never enter a painting state when an exception occurs
+                viewerMask?.disable()
                 release()
                 InvokeOnJavaFXApplicationThread { exceptionAlert(Constants.NAME, "Unable to paint.", e).show() }
             }
         }
+    }
+
+    /*NOTE: If `submitMask` is false, then it is the developers respondsibility to
+     * relase the resources from this controller, and to apply the mask MaskedSource when desired,
+     * and ultimately reset the MaskedSource's masks */
+    fun generateViewerMask(
+        level: Int = getViewerMipMapLevel(),
+        currentSource: MaskedSource<*, *> = paintera.sourceInfo().currentSourceProperty().get() as MaskedSource<*, *>,
+        submitMask: Boolean = true
+    ): ViewerMask {
+
+        val id = paintId() ?: throw IllegalIdForPainting(null)
+        val maskInfo = MaskInfo(0, level, UnsignedLongType(id))
+        return currentSource.setNewViewerMask(maskInfo, viewer, brushDepth()).also {
+            viewerMask = it
+            this.submitMask = submitMask
+        }
+    }
+
+    internal fun setFillLabel(fillVal: Long) {
+        fillLabel = fillVal
+        fillLabelSetManually = true
+    }
+
+    internal fun resetFillLabel() {
+        fillLabelSetManually = false
     }
 
     fun extendPaint(event: MouseEvent) {
@@ -162,9 +233,9 @@ class PaintClickOrDragController(
             return
         }
         synchronized(this) {
-            try {
-                val targetPosition = Postion(event)
-                if (targetPosition != position) {
+            val targetPosition = Postion(event)
+            if (targetPosition != position) {
+                try {
                     LOG.debug("Drag: paint at screen from $position to $targetPosition")
                     var draggedDistance = 0.0
                     val normalizedDragPos = (targetPosition linalgSubtract position).also {
@@ -178,62 +249,65 @@ class PaintClickOrDragController(
                         position += normalizedDragPos
                     }
                     LOG.debug("Painting ${draggedDistance + 1} times with radius ${brushRadius()} took a total of {}ms")
+                } finally {
+                    position.update(event)
                 }
-            } finally {
-                position.update(event)
             }
         }
     }
 
-
-    @get:Synchronized
-    private val maskIfIsPaintingOrNull: RandomAccessibleInterval<UnsignedLongType>?
-        get() = if (isPainting && mask != null) mask!!.mask else null
-
     @Synchronized
-    private fun paint(pos: Postion) = with(pos) { paint(x, y) }
+    private fun paint(pos: Postion) = pos.run { paint(x, y) }
 
     @Synchronized
     private fun paint(viewerX: Double, viewerY: Double) {
         LOG.trace("At {} {}", viewerX, viewerY)
         when {
             !isPainting -> LOG.debug("Not currently activated for painting, returning without action").also { return }
-            maskIfIsPaintingOrNull == null -> LOG.debug("Current mask is null, returning without action").also { return }
+            viewerMask == null -> LOG.debug("Current mask is null, returning without action").also { return }
         }
 
-        val mask = maskIfIsPaintingOrNull!!
-        val orthoAxis = when (viewer) {
-            paintera.orthogonalViews().topLeft.viewer() -> 2
-            paintera.orthogonalViews().topRight.viewer() -> 0
-            else -> 1
+        viewerMask?.run {
+
+            val initialPoint = currentToInitialPoint(viewerX, viewerY)
+
+            val paintIntervalInInitialViewer = Paint2D.paintIntoViewer(
+                viewerRai,
+                fillLabel,
+                initialPoint,
+                initialBrushRadius()
+            )
+
+
+            val paintIntervalInCurrentViewer = initialToCurrentViewerTransform.estimateBounds(paintIntervalInInitialViewer).smallestContainingInterval
+            val sourcePaintInterval = extendAndTransformBoundingBox(paintIntervalInCurrentViewer, currentSourceToViewerTransform.inverse(), .5)
+            val globalPaintInterval = extendAndTransformBoundingBox(sourcePaintInterval, initialSourceToGlobalTransform, .5)
+
+
+            viewerInterval = paintIntervalInCurrentViewer union viewerInterval
+            paintera.orthogonalViews().requestRepaint(globalPaintInterval)
         }
-        val trackedInterval = Paint2D.paint(
-            Views.extendValue(mask, UnsignedLongType(Label.INVALID)),
-            fillLabel,
-            orthoAxis,
-            viewerX,
-            viewerY,
-            brushRadius(),
-            brushDepth(),
-            labelToViewerTransform,
-            globalToViewerTransform,
-            labelToGlobalTransform
-        )
-        interval = trackedInterval + interval
-        ++fillLabel
-        val trackedIntervalInGlobalSpace = extendAndTransformBoundingBox(trackedInterval, labelToGlobalTransform, 0.5)
-        paintera.orthogonalViews().requestRepaint(trackedIntervalInGlobalSpace)
+
+
     }
 
-    private fun release() {
-        mask = null
+    private fun ViewerMask.initialBrushRadius(): Double {
+        val globalToInitialViewerTransform = initialToCurrentViewerTransform.copy().inverse().concatenate(currentGlobalToViewerTransform)
+        val brushRadius = Affine3DHelpers.extractScale(globalToInitialViewerTransform, 0) * brushRadius()
+        return brushRadius
+    }
+
+    internal fun release() {
+        viewerMask = null
         isPainting = false
-        interval = null
+        viewerInterval = null
         paintIntoThis = null
+        submitMask = true
     }
 
     companion object {
         private val LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
         private val FOREGROUND_CHECK = Predicate { t: UnsignedLongType -> Label.isForeground(t.get()) }
     }
+
 }

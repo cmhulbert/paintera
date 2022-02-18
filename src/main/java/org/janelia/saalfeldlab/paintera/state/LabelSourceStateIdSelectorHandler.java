@@ -20,7 +20,6 @@ import org.janelia.saalfeldlab.paintera.control.IdSelector;
 import org.janelia.saalfeldlab.paintera.control.actions.LabelActionType;
 import org.janelia.saalfeldlab.paintera.control.assignment.FragmentSegmentAssignment;
 import org.janelia.saalfeldlab.paintera.control.lock.LockedSegments;
-import org.janelia.saalfeldlab.paintera.control.paint.SelectNextId;
 import org.janelia.saalfeldlab.paintera.control.selection.SelectedIds;
 import org.janelia.saalfeldlab.paintera.data.DataSource;
 import org.janelia.saalfeldlab.paintera.id.IdService;
@@ -30,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.LongPredicate;
 import java.util.function.Supplier;
 
@@ -56,8 +54,6 @@ public class LabelSourceStateIdSelectorHandler {
 
   private Task<?> selectAllTask;
 
-  private SelectNextId nextId;
-
   public LabelSourceStateIdSelectorHandler(
 		  final DataSource<? extends IntegerType<?>, ?> source,
 		  final IdService idService,
@@ -76,15 +72,15 @@ public class LabelSourceStateIdSelectorHandler {
 
 	final IdSelector selector = new IdSelector(source, selectedIds, getActiveViewer, FOREGROUND_CHECK);
 
-	final var toggleLabelActions = new PainteraActionSet(LabelActionType.Toggle, "toggle single id", actionSet -> {
+	final var toggleLabelActions = new PainteraActionSet("toggle single id", LabelActionType.Toggle, actionSet -> {
 	  final var selectMaxCount = selector.selectFragmentWithMaximumCountAction();
-	  selectMaxCount.verifyNoKeysDown();
+	  selectMaxCount.verify(event -> keyTracker.areOnlyTheseKeysDown(KeyCode.ALT) || keyTracker.noKeysActive());
 	  selectMaxCount.verify(mouseEvent -> !Paintera.getPaintera().getMouseTracker().isDragging());
 	  selectMaxCount.verifyButtonTrigger(MouseButton.PRIMARY);
 	  actionSet.addAction(selectMaxCount);
 	});
 
-	final var appendLabelActions = new PainteraActionSet(LabelActionType.Append, "append id", actionSet -> {
+	final var appendLabelActions = new PainteraActionSet("append id", LabelActionType.Append, actionSet -> {
 	  final var appendMaxCount = selector.appendFragmentWithMaximumCountAction();
 	  appendMaxCount.verify(mouseEvent -> !Paintera.getPaintera().getMouseTracker().isDragging());
 	  appendMaxCount.verify(mouseEvent -> {
@@ -96,59 +92,58 @@ public class LabelSourceStateIdSelectorHandler {
 	  actionSet.addAction(appendMaxCount);
 	});
 
-	final var selectAllActions = new PainteraActionSet(LabelActionType.SelectAll, "Select All", actionSet -> {
+	final var selectAllActions = new PainteraActionSet("Select All", LabelActionType.SelectAll, actionSet -> {
 	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
 		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.SELECT_ALL);
 		keyAction.verify(event -> selectAllTask == null);
-		keyAction.onAction(keyEvent -> Tasks.createTask(task -> {
-				  Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.WAIT);
-				  selectAllTask = task;
-				  selector.selectAll();
-				  return null;
-				}
-		).onEnd(objectUtilityTask -> {
-				  selectAllTask = null;
-				  Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.DEFAULT);
-				}
-		).submit());
+		keyAction.onAction(keyEvent -> {
+		  Tasks.createTask(task -> {
+					Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.WAIT);
+					selectAllTask = task;
+					selector.selectAll();
+				  }
+		  ).onEnd(objectUtilityTask -> {
+					selectAllTask = null;
+					Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.DEFAULT);
+				  }
+		  ).submit();
+		});
 	  });
 	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
 		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.SELECT_ALL_IN_CURRENT_VIEW);
 		keyAction.verify(event -> selectAllTask == null);
 		keyAction.verify(event -> getActiveViewer.get() != null);
-		keyAction.onAction(keyEvent -> Tasks.createTask(task -> {
-				  Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.WAIT);
-				  selectAllTask = task;
-				  selector.selectAllInCurrentView(getActiveViewer.get());
-				  return null;
-				}
-		).onEnd(objectUtilityTask -> {
-				  selectAllTask = null;
-				  Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.DEFAULT);
-				}
-		).submit());
+		keyAction.onAction(keyEvent -> {
+		  Tasks.createTask(task -> {
+					Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.WAIT);
+					selectAllTask = task;
+					selector.selectAllInCurrentView(getActiveViewer.get());
+				  }
+		  ).onEnd(objectUtilityTask -> {
+					selectAllTask = null;
+					Paintera.getPaintera().getBaseView().getPane().getScene().setCursor(Cursor.DEFAULT);
+				  }
+		  ).submit();
+		});
 	  });
 	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
+		keyAction.setName("Cancel Select All");
 		keyAction.keysDown(KeyCode.ESCAPE);
-		keyAction.onAction(keyEvent -> Optional.ofNullable(selectAllTask).ifPresent(Task::cancel));
+		keyAction.verify(keyEvent -> selectAllTask != null);
+		keyAction.onAction(keyEvent -> {
+		  selectAllTask.cancel();
+		  selectedIds.deactivateAll();
+		});
 	  });
 	});
-	final var lockSegmentActions = new PainteraActionSet(LabelActionType.Lock, "Toggle Segment Lock", actionSet -> {
+	final var lockSegmentActions = new PainteraActionSet("Toggle Segment Lock", LabelActionType.Lock, actionSet -> {
 	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
 		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.LOCK_SEGEMENT);
 		keyAction.onAction(keyEvent -> selector.toggleLock(assignment, lockedSegments));
 	  });
 	});
 
-	nextId = new SelectNextId(idService, selectedIds);
-	final var createNewActions = new PainteraActionSet(LabelActionType.CreateNew, "Create New Segment", actionSet -> {
-	  actionSet.addKeyAction(KEY_PRESSED, keyAction -> {
-		keyAction.keyMatchesBinding(keyBindings, LabelSourceStateKeys.NEXT_ID);
-		keyAction.onAction(keyEvent -> nextId.getNextId());
-	  });
-	});
-
-	return List.of(toggleLabelActions, appendLabelActions, selectAllActions, lockSegmentActions, createNewActions);
+	return List.of(toggleLabelActions, appendLabelActions, selectAllActions, lockSegmentActions); //, createNewActions);
   }
 
   public long nextId() {
@@ -158,12 +153,10 @@ public class LabelSourceStateIdSelectorHandler {
 
   public long nextId(boolean activate) {
 
+	final long next = idService.next();
 	if (activate) {
-	  return nextId.getNextId();
-	} else {
-	  /* No-op with the id. */
-	  return nextId.getNextId((ids, id) -> {
-	  });
+	  selectedIds.activate(next);
 	}
+	return next;
   }
 }

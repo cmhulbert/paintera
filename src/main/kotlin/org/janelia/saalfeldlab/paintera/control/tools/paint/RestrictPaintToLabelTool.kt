@@ -7,7 +7,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseEvent
 import org.janelia.saalfeldlab.fx.actions.ActionSet
 import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
-import org.janelia.saalfeldlab.fx.extensions.LazyForeignMap
+import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.paint.RestrictPainting
 import org.janelia.saalfeldlab.paintera.paintera
@@ -19,21 +19,25 @@ class RestrictPaintToLabelTool(activeSourceStateProperty: SimpleObjectProperty<S
     override val graphicProperty: SimpleObjectProperty<Node>
         get() = TODO("Not yet implemented")
 
-    private val overlay by LazyForeignMap({ activeViewer }) { RestrictOverlay(it!!) }
+    private val overlay by LazyForeignValue({ activeViewer }) {
+        it?.let {
+            RestrictOverlay(it)
+        }
+    }
 
     override fun activate() {
         super.activate()
-        activeViewer?.apply { overlay.setPosition(mouseXProperty.get(), mouseYProperty.get()) }
-        overlay.visible = true
+        activeViewer?.apply { overlay?.setPosition(mouseXProperty.get(), mouseYProperty.get()) }
+        overlay?.visible = true
     }
 
     override fun deactivate() {
-        overlay.visible = false
+        overlay?.visible = false
         super.deactivate()
     }
 
     override val actionSets: List<ActionSet> = listOf(
-        PainteraActionSet(PaintActionType.Restrict, "restrict") {
+        PainteraActionSet("restrict", PaintActionType.Restrict) {
             mouseAction(MouseEvent.MOUSE_PRESSED) {
                 keysDown(KeyCode.R, KeyCode.SHIFT)
                 verify { it.isPrimaryButtonDown }

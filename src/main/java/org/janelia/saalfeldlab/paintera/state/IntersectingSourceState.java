@@ -178,8 +178,10 @@ public class IntersectingSourceState<K1 extends MeshCacheKey, K2 extends MeshCac
 	this.meshManager = createMeshManager(viewer, getGetUnionBlockListFor);
 	this.intersectionMeshCacheKeyBinding.addListener((obs, oldv, newv) -> {
 	  if (newv != null && oldv != newv) {
-		getDataSource().invalidateAll();
-		getMeshManager().createMeshFor(newv);
+		INTERSECTION_FILL_SERVICE.submit(() -> {
+		  getDataSource().invalidateAll();
+		  getMeshManager().createMeshFor(newv);
+		});
 	  }
 	});
 

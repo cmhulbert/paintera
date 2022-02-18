@@ -9,8 +9,8 @@ import javafx.beans.value.ObservableObjectValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import org.janelia.saalfeldlab.fx.actions.ActionSet
-import org.janelia.saalfeldlab.fx.actions.installActionSet
-import org.janelia.saalfeldlab.fx.actions.removeActionSet
+import org.janelia.saalfeldlab.fx.actions.ActionSet.Companion.installActionSet
+import org.janelia.saalfeldlab.fx.actions.ActionSet.Companion.removeActionSet
 import org.janelia.saalfeldlab.fx.extensions.createValueBinding
 import org.janelia.saalfeldlab.fx.extensions.nullable
 import org.janelia.saalfeldlab.fx.extensions.nullableVal
@@ -46,7 +46,7 @@ interface SourceMode : ControlMode {
 interface ToolMode : SourceMode {
 
     val toolBarTools: ObservableList<Tool>
-    val toolTriggers: List<ActionSet>
+    val modeActions: List<ActionSet>
 
     var activeToolProperty: ObjectProperty<Tool?>
     var activeTool: Tool?
@@ -76,11 +76,11 @@ abstract class AbstractSourceMode : SourceMode {
     private val sourceSpecificActionListener = ChangeListener<SourceState<*, *>?> { obs, old, new ->
         val viewer = activeViewerProperty.get()?.viewer()
         old?.apply {
-            viewer?.let { viewer -> viewerActionSets.forEach(viewer::removeActionSet) }
+            viewer?.let { viewer -> viewerActionSets.forEach { viewer.removeActionSet(it) } }
             paintera.defaultHandlers.globalActionHandlers.removeAll(globalActionSets)
         }
         new?.apply {
-            viewer?.let { viewer -> viewerActionSets.forEach(viewer::installActionSet) }
+            viewer?.let { viewer -> viewerActionSets.forEach { viewer.installActionSet(it) } }
             paintera.defaultHandlers.globalActionHandlers.addAll(globalActionSets)
         }
     }
@@ -107,6 +107,7 @@ abstract class AbstractSourceMode : SourceMode {
         activeViewerProperty.unbind()
         activeSourceStateProperty.set(null)
         activeViewerProperty.set(null)
+        activeViewerProperty.removeListener(sourceSpecificViewerActionListener)
     }
 }
 

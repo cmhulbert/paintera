@@ -14,9 +14,11 @@ import javafx.scene.image.Image
 import javafx.stage.Stage
 import net.imglib2.realtransform.AffineTransform3D
 import org.controlsfx.control.Notifications
+import org.janelia.saalfeldlab.fx.actions.ActionSet.Companion.installActionSet
 import org.janelia.saalfeldlab.fx.event.KeyTracker
 import org.janelia.saalfeldlab.fx.event.MouseTracker
 import org.janelia.saalfeldlab.fx.extensions.createValueBinding
+import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.paintera.PainteraBaseKeys.NAMED_COMBINATIONS
 import org.janelia.saalfeldlab.paintera.Version.VERSION_STRING
@@ -58,6 +60,18 @@ class PainteraMainWindow(val gateway: PainteraGateway = PainteraGateway()) {
     private lateinit var paneWithStatus: BorderPaneWithStatusBars
 
     val activeViewer = SimpleObjectProperty<ViewerPanelFX?>()
+
+    private val activeOrthoAxisBinding = activeViewer.createValueBinding {
+        it?.let {
+            when (it) {
+                baseView.orthogonalViews().topLeft.viewer() -> 2
+                baseView.orthogonalViews().topRight.viewer() -> 0
+                else -> 1
+            }
+        } ?: -1
+    }
+
+    val activeOrthoAxis: Int by activeOrthoAxisBinding.nonnullVal()
 
     internal lateinit var defaultHandlers: PainteraDefaultHandlers
 
@@ -185,7 +199,7 @@ class PainteraMainWindow(val gateway: PainteraGateway = PainteraGateway()) {
     }
 
     fun setupStage(stage: Stage) {
-        keyTracker.installInto(stage)
+        stage.installActionSet(keyTracker.actions)
         projectDirectory.addListener { pd -> stage.title = if (pd.directory == null) NAME else "$NAME ${pd.directory.absolutePath.homeToTilde()}" }
         stage.icons.addAll(
             Image("/icon-16.png"),

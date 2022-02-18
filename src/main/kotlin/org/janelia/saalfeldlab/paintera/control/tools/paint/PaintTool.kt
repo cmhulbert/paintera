@@ -2,6 +2,7 @@ package org.janelia.saalfeldlab.paintera.control.tools.paint
 
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
+import javafx.scene.Node
 import net.imglib2.converter.Converter
 import net.imglib2.type.logic.BoolType
 import net.imglib2.type.numeric.IntegerType
@@ -12,15 +13,18 @@ import org.janelia.saalfeldlab.paintera.control.assignment.FragmentSegmentAssign
 import org.janelia.saalfeldlab.paintera.control.selection.SelectedIds
 import org.janelia.saalfeldlab.paintera.control.tools.ViewerTool
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
+import org.janelia.saalfeldlab.paintera.id.IdService
 import org.janelia.saalfeldlab.paintera.state.BrushProperties
-import org.janelia.saalfeldlab.paintera.state.FloodFillState
 import org.janelia.saalfeldlab.paintera.state.LabelSourceState
 import org.janelia.saalfeldlab.paintera.state.SourceState
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
 
-abstract class PaintTool(val activeSourceStateProperty: SimpleObjectProperty<SourceState<*, *>?>) : ViewerTool() {
+interface ConfigurableTool {
 
-    val brushProperties = BrushProperties()
+    fun getConfigurableNodes(): List<Node>
+}
+
+abstract class PaintTool(val activeSourceStateProperty: SimpleObjectProperty<SourceState<*, *>?>) : ViewerTool(), ConfigurableTool {
 
     val activeStateProperty = SimpleObjectProperty<SourceState<*, *>?>()
     protected val activeState by activeStateProperty.nullableVal()
@@ -28,17 +32,10 @@ abstract class PaintTool(val activeSourceStateProperty: SimpleObjectProperty<Sou
     private val sourceStateBindings = activeSourceStateProperty.createValueBinding { getValidSourceState(it) }
     val activeSourceToSourceStateContextBinding = activeSourceStateProperty.createValueBinding { binding -> createPaintStateContext(binding) }
 
-    private fun createPaintStateContext(source: SourceState<*, *>?) = when (source) {
-        is LabelSourceState<*, *> -> LabelSourceStatePaintContext(source)
-        is ConnectomicsLabelState<*, *> -> {
-            (source.dataSource as? MaskedSource<*, *>)?.let {
-                ConnectomicsLabelStatePaintContext(source)
-            }
-        }
-        else -> null
-    }
-
     val statePaintContext by activeSourceToSourceStateContextBinding.nullableVal()
+
+    val brushPropertiesBinding = activeSourceToSourceStateContextBinding.createValueBinding { it?.brushProperties }
+    val brushProperties by brushPropertiesBinding.nullableVal()
 
     override fun activate() {
         super.activate()
@@ -51,10 +48,17 @@ abstract class PaintTool(val activeSourceStateProperty: SimpleObjectProperty<Sou
         super.deactivate()
     }
 
+    override fun getConfigurableNodes(): List<Node> {
+        //TODO Caleb:
+        return listOf()
+    }
+
 
     fun changeBrushDepth(sign: Double) {
-        val newDepth = brushProperties.brushDepth + if (sign > 0) -1 else 1
-        brushProperties.brushDepth = newDepth.coerceIn(1.0, 2.0)
+        brushProperties?.apply {
+            val newDepth = brushDepth + if (sign > 0) -1 else 1
+            brushDepth = newDepth.coerceIn(1.0, 2.0)
+        }
     }
 
     companion object {
@@ -63,6 +67,16 @@ abstract class PaintTool(val activeSourceStateProperty: SimpleObjectProperty<Sou
             // so even though it is marked for deprecation, is still is required here (for now)
             (it as? ConnectomicsLabelState<*, *>) ?: (it as? LabelSourceState<*, *>)
         }
+
+        internal fun createPaintStateContext(source: SourceState<*, *>?) = when (source) {
+            is LabelSourceState<*, *> -> LabelSourceStatePaintContext(source)
+            is ConnectomicsLabelState<*, *> -> {
+                (source.dataSource as? MaskedSource<*, *>)?.let {
+                    ConnectomicsLabelStatePaintContext(source)
+                }
+            }
+            else -> null
+        }
     }
 }
 
@@ -70,12 +84,14 @@ interface StatePaintContext<D : IntegerType<D>> {
     val dataSource: MaskedSource<D, *>
     val assignment: FragmentSegmentAssignment
     val isVisibleProperty: SimpleBooleanProperty
-    val setFloodFillState: (FloodFillState) -> Unit
     val selectedIds: SelectedIds
+    val idService: IdService
     val paintSelection: () -> Long?
+    val brushProperties: BrushProperties
 
     fun getMaskForLabel(label: Long): Converter<D, BoolType>
-    fun nextId() : Long
+    fun nextId(activate: Boolean): Long
+    fun nextId(): Long = nextId(false)
 }
 
 
@@ -84,22 +100,24 @@ private data class LabelSourceStatePaintContext<D : IntegerType<D>>(val state: L
     override val dataSource = state.dataSource as MaskedSource<D, *>
     override val assignment = state.assignment()!!
     override val isVisibleProperty = SimpleBooleanProperty().apply { bind(state.isVisibleProperty) }
-    override val setFloodFillState: (FloodFillState?) -> Unit = { state.setFloodFillState(it) }
     override val selectedIds = state.selectedIds()!!
+    override val idService = state.idService()
     override val paintSelection = { selectedIds.lastSelection.takeIf { Label.regular(it) } }
+    override val brushProperties: BrushProperties = BrushProperties()
 
     override fun getMaskForLabel(label: Long): Converter<D, BoolType> = state.getMaskForLabel(label)
-    override fun nextId() = state.nextId()
+    override fun nextId(activate: Boolean) = state.nextId(activate)
 }
 
 private data class ConnectomicsLabelStatePaintContext<D : IntegerType<D>>(val state: ConnectomicsLabelState<D, *>) : StatePaintContext<D> {
     override val dataSource: MaskedSource<D, *> = state.dataSource as MaskedSource<D, *>
     override val assignment = state.fragmentSegmentAssignment
     override val isVisibleProperty = SimpleBooleanProperty().apply { bind(state.isVisibleProperty) }
-    override val setFloodFillState: (FloodFillState?) -> Unit = { state.floodFillState.set(it) }
     override val selectedIds = state.selectedIds
+    override val idService = state.idService
     override val paintSelection = { selectedIds.lastSelection.takeIf { Label.regular(it) } }
+    override val brushProperties: BrushProperties = state.brushProperties ?: BrushProperties()
 
     override fun getMaskForLabel(label: Long): Converter<D, BoolType> = state.maskForLabel.apply(label)
-    override fun nextId() = state.nextId()
+    override fun nextId(activate: Boolean) = state.nextId(activate)
 }

@@ -18,15 +18,18 @@ import javafx.event.EventHandler
 import javafx.scene.Node
 import javafx.scene.control.ContextMenu
 import javafx.scene.input.*
+import javafx.scene.input.KeyEvent.KEY_PRESSED
 import javafx.scene.transform.Affine
 import net.imglib2.FinalRealInterval
 import net.imglib2.Interval
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.util.Intervals
+import org.janelia.saalfeldlab.fx.actions.Action.Companion.installAction
 import org.janelia.saalfeldlab.fx.actions.ActionSet
-import org.janelia.saalfeldlab.fx.actions.installActionSet
-import org.janelia.saalfeldlab.fx.actions.removeActionSet
-import org.janelia.saalfeldlab.fx.event.EventFX
+import org.janelia.saalfeldlab.fx.actions.ActionSet.Companion.installActionSet
+import org.janelia.saalfeldlab.fx.actions.ActionSet.Companion.removeActionSet
+import org.janelia.saalfeldlab.fx.actions.KeyAction.Companion.onAction
+import org.janelia.saalfeldlab.fx.actions.PainteraActionSet
 import org.janelia.saalfeldlab.fx.ortho.GridConstraintsManager
 import org.janelia.saalfeldlab.fx.ortho.GridConstraintsManager.MaximizedColumn
 import org.janelia.saalfeldlab.fx.ortho.GridConstraintsManager.MaximizedRow
@@ -132,10 +135,11 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
         sourceInfo.currentState().addListener { _, _, newState -> paintera.baseView.changeMode(newState.defaultMode) }
         sourceInfo.currentSourceProperty().addListener { _, oldSource, newSource ->
             (oldSource as? MaskedSource<*, *>)?.apply {
-                paintera.baseView.isDisabledProperty.unbind()
+                paintera.baseView.disabledPropertyBindings.remove(oldSource)
             }
             (newSource as? MaskedSource<*, *>)?.apply {
-                paintera.baseView.isDisabledProperty.bind(isBusyProperty)
+                val maskedSourceBusyBinding = Bindings.createBooleanBinding({ isBusyProperty.get() }, isBusyProperty)
+                paintera.baseView.disabledPropertyBindings[newSource] = maskedSourceBusyBinding
             }
         }
 
@@ -189,11 +193,10 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
         sourceInfo.trackSources().addListener(createSourcesInterpolationListener())
 
         val keyCombinations = ControlMode.keyAndMouseBindings.keyCombinations
-        EventFX.KEY_PRESSED(
-            PainteraBaseKeys.CYCLE_INTERPOLATION_MODES,
-            { toggleInterpolation() },
-            { keyCombinations.matches(PainteraBaseKeys.CYCLE_INTERPOLATION_MODES, it) }
-        ).installInto(borderPane)
+
+
+        val toggleInterpolation = KEY_PRESSED.onAction(keyCombinations, PainteraBaseKeys.CYCLE_INTERPOLATION_MODES) { toggleInterpolation() }
+        borderPane.installAction(toggleInterpolation)
 
         this.resizer = GridResizer(properties.gridConstraints, 5.0, baseView.pane, keyTracker).also { baseView.pane.installActionSet(it) }
 
@@ -227,19 +230,20 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
             toggleMaximizeBottomLeft to orthogonalViews.bottomLeft
         ).forEach { (toggle, view) ->
             /* Toggle Maxmizing one pane*/
-            EventFX.KEY_PRESSED(
-                PainteraBaseKeys.MAXIMIZE_VIEWER,
-                { toggle.toggleMaximizeViewer() },
-                { baseView.isActionAllowed(MenuActionType.ToggleMaximizeViewer) && keyCombinations.matches(PainteraBaseKeys.MAXIMIZE_VIEWER, it) }
-            ).installInto(view.viewer())
+            val maximizeViewer = PainteraActionSet(PainteraBaseKeys.MAXIMIZE_VIEWER, MenuActionType.ToggleMaximizeViewer) {
+                KEY_PRESSED(keyCombinations, PainteraBaseKeys.MAXIMIZE_VIEWER) {
+                    onAction { toggle.toggleMaximizeViewer() }
+                }
+            }
 
+            val maximizeViewerAnd3D = PainteraActionSet(PainteraBaseKeys.MAXIMIZE_VIEWER_AND_3D, MenuActionType.ToggleMaximizeViewer) {
+                KEY_PRESSED(keyCombinations, PainteraBaseKeys.MAXIMIZE_VIEWER_AND_3D) {
+                    onAction { toggle.toggleMaximizeViewerAnd3D() }
+                }
+            }
 
-            /* Toggle Maxmizing the Viewer and an OrthoSlice*/
-            EventFX.KEY_PRESSED(
-                PainteraBaseKeys.MAXIMIZE_VIEWER_AND_3D,
-                { toggle.toggleMaximizeViewerAndOrthoslice() },
-                { baseView.isActionAllowed(MenuActionType.ToggleMaximizeViewer) && keyCombinations.matches(PainteraBaseKeys.MAXIMIZE_VIEWER_AND_3D, it) }
-            ).installInto(view.viewer())
+            view.viewer().installActionSet(maximizeViewer)
+            view.viewer().installActionSet(maximizeViewerAnd3D)
         }
 
         val contextMenuFactory = MeshesGroupContextMenu(baseView.manager())
@@ -291,7 +295,7 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
         val addBookmarkWithCommentKeyCode = KeyCodeCombination(KeyCode.B, KeyCombination.SHIFT_DOWN)
         val applyBookmarkKeyCode = KeyCodeCombination(KeyCode.B, KeyCombination.CONTROL_DOWN)
         //TODO Caleb: Add as global action?
-        paneWithStatus.pane.addEventHandler(KeyEvent.KEY_PRESSED) {
+        paneWithStatus.pane.addEventHandler(KEY_PRESSED) {
             if (baseView.isActionAllowed(NavigationActionType.Bookmark)) {
                 when {
                     addBookmarkKeyCode.match(it) -> {
@@ -349,7 +353,6 @@ class PainteraDefaultHandlers(private val paintera: PainteraMainWindow, paneWith
         }
     }
 
-    //TODO Caleb: Make some `GlobalAction` Service?
     fun addOpenDatasetContextMenuAction(target: Node, vararg keyTrigger: KeyCode): ActionSet {
 
         assert(keyTrigger.isNotEmpty())

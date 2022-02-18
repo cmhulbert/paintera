@@ -19,7 +19,7 @@ class BrushOverlay(viewer: ViewerPanelFX) : CursorOverlayInViewer(viewer) {
     private var width = 0.0
     private var height = 0.0
     var canPaint = true
-    var reason : String? = null
+    var reason: String? = null
 
     private val viewerTransform = AffineTransform3D()
 
@@ -85,17 +85,12 @@ class BrushOverlay(viewer: ViewerPanelFX) : CursorOverlayInViewer(viewer) {
                         strokeOval(x - scaledRadius, y - scaledRadius, 2 * scaledRadius + 1, 2 * scaledRadius + 1)
                         viewer.scene.cursor = getCursor()
 
-                        /* Draw Red X with reason if not valid */
+                        /* Overlay reason text if not valid */
                         if (!canPaint) {
-                            stroke = Color.DARKRED
-                            fill = Color.DARKRED
-                            lineWidth = STROKE_WIDTH * 3
-                            strokeLine(x - scaledRadius, y - scaledRadius, x + scaledRadius, y + scaledRadius)
-                            strokeLine(x - scaledRadius, y + scaledRadius, x + scaledRadius, y - scaledRadius)
                             reason?.let {
                                 fill = Color.WHITE.deriveColor(0.0, 0.0, 0.0, .75)
                                 font = Font.font(font.family, 20.0)
-                                fillText(it, x + 20, y + 10)
+                                fillText(it, x - 50, y - scaledRadius - 5)
                             }
                         }
                     }

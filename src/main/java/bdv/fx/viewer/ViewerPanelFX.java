@@ -52,6 +52,7 @@ import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.ui.TransformListener;
 import net.imglib2.util.Intervals;
 import org.janelia.saalfeldlab.fx.ObservablePosition;
+import org.janelia.saalfeldlab.fx.actions.ActionSet;
 import org.janelia.saalfeldlab.paintera.Paintera;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,7 +170,7 @@ public class ViewerPanelFX
 
 	transformListeners = new CopyOnWriteArrayList<>();
 
-	mouseTracker.installInto(this);
+	ActionSet.installActionSet(this, mouseTracker.getActions());
 
 	this.renderUnit = new RenderUnit(
 			threadGroup,
@@ -279,14 +280,14 @@ public class ViewerPanelFX
   public <P extends RealLocalizable & RealPositionable> void displayToSourceCoordinates(
 		  final double x,
 		  final double y,
-		  final AffineTransform3D sourceTransform,
+		  final AffineTransform3D sourceToGlobal,
 		  final P pos) {
 
 	pos.setPosition(x, 0);
 	pos.setPosition(y, 1);
 	pos.setPosition(0, 2);
 	displayToGlobalCoordinates(pos);
-	sourceTransform.applyInverse(pos, pos);
+	sourceToGlobal.applyInverse(pos, pos);
   }
 
   /**
@@ -333,12 +334,13 @@ public class ViewerPanelFX
 
   public void requestRepaint(final RealInterval intervalInGlobalSpace) {
 
-	final AffineTransform3D transform = this.viewerTransform.copy();
-	final RealInterval interval = transform.estimateBounds(intervalInGlobalSpace);
-	// NOTE: Simply transforming the bounding box will over-estimate the interval that
+	/* FIXME: Since we paint into viewer space now, consider a repaint that accepts intervals in viewerSpace */
+	final AffineTransform3D globalToViewerTransform = this.viewerTransform.copy();
+	final RealInterval intervalInViewerSpace = globalToViewerTransform.estimateBounds(intervalInGlobalSpace);
+	// NOTE: Simply transforming the bounding box will over-estimate the intervalInViewerSpace that
 	//  needs to be repainted when not axis aligned but in practice that does not seem to be an issue.
-	if (interval.realMin(2) <= 0 && interval.realMax(2) >= 0) {
-	  final Interval integerInterval = Intervals.smallestContainingInterval(interval);
+	if (intervalInViewerSpace.realMin(2) <= 0 && intervalInViewerSpace.realMax(2) >= 0) {
+	  final Interval integerInterval = Intervals.smallestContainingInterval(intervalInViewerSpace);
 	  final long[] min = new long[2];
 	  final long[] max = new long[2];
 	  Arrays.setAll(min, integerInterval::min);

@@ -87,7 +87,7 @@ public class MaskedSourceDeserializer implements JsonDeserializer<MaskedSource<?
 	  //					.map( JsonElement::getAsString )
 	  //					.orElseGet( canvasCacheDirUpdate );
 
-	  final DataSource<?, ?> masked = Masks.mask(
+	  final DataSource<?, ?> masked = Masks.maskedSource(
 			  source,
 			  queue,
 			  initialCanvasPath,
