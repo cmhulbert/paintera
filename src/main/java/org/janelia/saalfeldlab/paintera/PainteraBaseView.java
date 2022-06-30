@@ -23,6 +23,7 @@ import net.imglib2.Interval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.Volatile;
 import net.imglib2.algorithm.lazy.Lazy;
+import net.imglib2.cache.img.CachedCellImg;
 import net.imglib2.converter.ARGBColorConverter;
 import net.imglib2.converter.ARGBCompositeColorConverter;
 import net.imglib2.img.basictypeaccess.AccessFlags;
@@ -37,6 +38,7 @@ import net.imglib2.view.Views;
 import net.imglib2.view.composite.RealComposite;
 import org.janelia.saalfeldlab.fx.ortho.OrthogonalViews;
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread;
+import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.paintera.composition.CompositeProjectorPreMultiply;
 import org.janelia.saalfeldlab.paintera.config.input.KeyAndMouseConfig;
 import org.janelia.saalfeldlab.paintera.control.actions.ActionType;
@@ -54,6 +56,7 @@ import org.janelia.saalfeldlab.paintera.state.RawSourceState;
 import org.janelia.saalfeldlab.paintera.state.SourceInfo;
 import org.janelia.saalfeldlab.paintera.state.SourceState;
 import org.janelia.saalfeldlab.paintera.state.raw.ConnectomicsRawState;
+import org.janelia.saalfeldlab.paintera.state.raw.MultiScaleRandomAccessibleIntervalDataSourceBackend;
 import org.janelia.saalfeldlab.paintera.state.raw.SingleScaleRandomAccessibleIntervalDataSourceBackend;
 import org.janelia.saalfeldlab.paintera.viewer3d.Viewer3DFX;
 import org.janelia.saalfeldlab.util.NamedThreadFactory;
@@ -63,8 +66,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.lang.invoke.MethodHandles;
-import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -363,6 +366,82 @@ public class PainteraBaseView {
 	return state;
   }
 
+  public <D extends RealType<D> & NativeType<D>> void lazyMultiscaleCellTest() {
+
+	double d = 2;
+
+	addMultiScaleLazyCellRawSource(
+			new IntType(),
+			new FinalInterval[]{
+					new FinalInterval(1000, 1000, 1000),
+					new FinalInterval(500, 500, 500),
+					new FinalInterval(250, 250, 250),
+					new FinalInterval(125, 125, 125),
+					new FinalInterval(64, 64, 64),
+			},
+			new int[][]{
+					new int[]{64, 64, 64},
+					new int[]{64, 64, 64},
+					new int[]{64, 64, 64},
+					new int[]{64, 64, 64},
+					new int[]{64, 64, 64},
+			},
+			"Multiscale Test", List.of(
+					cell -> mandelbulb(cell, new long[]{1000, 1000, 1000}),
+					cell -> mandelbulb(cell, new long[]{500, 500, 500}),
+					cell -> mandelbulb(cell, new long[]{250, 250, 250}),
+					cell -> mandelbulb(cell, new long[]{125, 125, 125}),
+					cell -> mandelbulb(cell, new long[]{64, 64, 64})
+			)
+	);
+  }
+
+  private void mandelbulb(RandomAccessibleInterval<IntType> cell, long[] imgSize) {
+
+	//	final var random = new Random();
+	final var cursor = Views.iterable(cell).localizingCursor();
+	while (cursor.hasNext()) {
+	  final var type = cursor.next();
+	  //	  type.set(random.nextInt(255));
+	  final var pos = cursor.positionAsDoubleArray();
+	  final var posNorm = new double[pos.length];
+
+	  for (int i = 0; i < pos.length; i++) {
+		posNorm[i] = (pos[i] / imgSize[i]) - .5;
+	  }
+	  double x = posNorm[0], y = posNorm[1], z = posNorm[2];
+	  double r = 0.0;
+
+	  for (int i = 0; i < 5; i++) {
+		final double x2 = x * x;
+		final double y2 = y * y;
+		final double z2 = z * z;
+		r = Math.sqrt(x2 + y2 + z2);
+		if (r > 2)
+		  break;
+
+		double theta = Math.atan2(Math.sqrt(x2 + y2), z);
+		double phi = Math.atan2(y, x);
+
+		double zr = Math.pow(r, 8);
+		theta *= 8;
+		phi *= 8;
+
+		final double stheta8 = Math.sin(theta * 8);
+		final var newX = zr * stheta8 * Math.cos(phi * 8);
+		final var newY = zr * stheta8 * Math.sin(phi * 8);
+		final var newZ = zr * Math.cos(theta * 8);
+
+		x = newX + x;
+		y = newY + y;
+		z = newZ + z;
+	  }
+	  if (r < 2) {
+		type.set((int)(255 * (r / 2)));
+	  }
+	}
+  }
+
   public void lazyCellTest() {
 
 	final var random = new Random();
@@ -370,41 +449,8 @@ public class PainteraBaseView {
 	double d = 2;
 
 	addSingleScaleLazyCellRawSource(
-			new IntType(), new FinalInterval(1000, 1000, 200), new int[]{64, 64, 64}, "Test", cell -> {
-			  final var cursor = Views.iterable(cell).localizingCursor();
-			  while (cursor.hasNext()) {
-				final var type = cursor.next();
-				final var pos = cursor.positionAsDoubleArray();
-				final var posNorm = Arrays.stream(pos).map(it -> (it - 250) / 500).toArray();
-
-				double posX = pos[0], posY = pos[1], posZ = pos[2];
-				double x = posNorm[0], y = posNorm[1], z = posNorm[2];
-				double r = 0.0;
-
-				for (int i = 0; i < 10; i++) {
-				  r = Math.sqrt(x * x + y * y + z * z);
-				  if (r > 2)
-					break;
-
-				  double theta = Math.atan2(Math.sqrt(x * x + y * y), z);
-				  double phi = Math.atan2(y, x);
-
-				  double zr = Math.pow(r, 8);
-				  theta *= 8;
-				  phi *= 8;
-
-				  final var newX = zr * Math.sin(theta * 8) * Math.cos(phi * 8);
-				  final var newY = zr * Math.sin(theta * 8) * Math.sin(phi * 8);
-				  final var newZ = zr * Math.cos(theta * 8);
-
-				  x = newX + x;
-				  y = newY + y;
-				  z = newZ + z;
-				}
-				if (r < 2) {
-				  type.set((int)(255 * (r / 2)));
-				}
-			  }
+			new IntType(), new FinalInterval(1000, 1000, 1000), new int[]{64, 64, 64}, "Test", cell -> {
+			  mandelbulb(cell, new long[]{1000, 1000, 1000});
 			}
 	);
   }
@@ -422,6 +468,32 @@ public class PainteraBaseView {
 	);
 
 	final var lazyRaiBackend = new SingleScaleRandomAccessibleIntervalDataSourceBackend(name, imgSize.dimensionsAsLongArray(), blockSize, lazyImg);
+
+	final var state = new ConnectomicsRawState<D, T>(lazyRaiBackend, sharedQueue, 0, name);
+	state.converter().setMax(255);
+
+	InvokeOnJavaFXApplicationThread.invoke(() -> addState(state));
+	return state;
+  }
+
+  public <D extends RealType<D> & NativeType<D>, T extends AbstractVolatileNativeRealType<D, T>> ConnectomicsRawState<D, ?> addMultiScaleLazyCellRawSource(
+		  final D dataType,
+		  final Interval[] imgSize,
+		  final int[][] blockSize,
+		  final String name,
+		  final List<Consumer<RandomAccessibleInterval<D>>> cellBuilders) {
+
+	CachedCellImg<D, ?>[] imgs = new CachedCellImg[imgSize.length];
+	long[][] dimensions = new long[imgSize.length][imgSize[0].numDimensions()];
+	for (int idx = 0; idx < imgSize.length; idx++) {
+	  imgs[idx] = Lazy.generate(
+			  imgSize[idx], blockSize[idx], dataType.copy(),
+			  AccessFlags.setOf(AccessFlags.VOLATILE), cellBuilders.get(idx)
+	  );
+	  dimensions[idx] = imgSize[idx].dimensionsAsLongArray();
+	}
+
+	final var lazyRaiBackend = new MultiScaleRandomAccessibleIntervalDataSourceBackend(name, dimensions, blockSize, imgs, N5Utils.dataType(dataType.copy()));
 
 	final var state = new ConnectomicsRawState<D, T>(lazyRaiBackend, sharedQueue, 0, name);
 	state.converter().setMax(255);

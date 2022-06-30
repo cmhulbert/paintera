@@ -1,7 +1,6 @@
 package org.janelia.saalfeldlab.paintera.state.raw
 
 import bdv.util.volatiles.SharedQueue
-import bdv.util.volatiles.VolatileViews
 import javafx.scene.Node
 import net.imglib2.Volatile
 import net.imglib2.cache.img.CachedCellImg
@@ -15,51 +14,61 @@ import net.imglib2.type.numeric.RealType
 import net.imglib2.util.Util
 import org.janelia.saalfeldlab.n5.*
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils
+import org.janelia.saalfeldlab.n5.metadata.N5MultiScaleMetadata
 import org.janelia.saalfeldlab.n5.metadata.N5SingleScaleMetadata
 import org.janelia.saalfeldlab.paintera.data.DataSource
 import org.janelia.saalfeldlab.paintera.data.RandomAccessibleIntervalDataSource
 import org.janelia.saalfeldlab.paintera.state.metadata.MetadataState
+import org.janelia.saalfeldlab.paintera.state.metadata.MultiScaleMetadataState
 import org.janelia.saalfeldlab.paintera.state.metadata.N5ContainerState
-import org.janelia.saalfeldlab.paintera.state.metadata.SingleScaleMetadataState
 import org.janelia.saalfeldlab.util.TmpVolatileHelpers
 import org.janelia.saalfeldlab.util.TmpVolatileHelpers.Companion.createVolatileCachedCellImgWithInvalidate
 import org.janelia.saalfeldlab.util.n5.ImagesWithTransform
 import java.lang.reflect.Type
 
-class SingleScaleRandomAccessibleIntervalDataSourceBackend<D, T, A>(
+class MultiScaleRandomAccessibleIntervalDataSourceBackend<D, T, A>(
     override val name: String,
-    val dimensions: LongArray,
-    val blockSize: IntArray,
-    val data: CachedCellImg<D, A>
+    val dimensions: Array<LongArray>,
+    val blockSize: Array<IntArray>,
+    val data: Array<CachedCellImg<D, A>>,
+    val dataType: DataType = N5Utils.dataType(Util.getTypeFromInterval(data[0]))
 ) : ConnectomicsRawBackend<D, T>
     where D : NativeType<D>, D : RealType<D>, T : NativeType<T>, T : Volatile<D>, A : VolatileArrayDataAccess<A> {
 
-    val dataType: DataType = N5Utils.dataType(Util.getTypeFromInterval(data))
+    val datasetAttributes = dimensions.mapIndexed { idx, dims ->
+        DatasetAttributes(dims, blockSize[idx], dataType, RawCompression())
+    }
 
-    val datasetAttributes = DatasetAttributes(dimensions, blockSize, dataType, RawCompression())
-
-    private val metadata = N5SingleScaleMetadata(
+    private val metadata = N5MultiScaleMetadata(
         "Virtual RAI Backend",
-        AffineTransform3D(),
-        doubleArrayOf(1.0, 1.0, 1.0),
-        doubleArrayOf(1.0, 1.0, 1.0),
-        doubleArrayOf(0.0, 0.0, 0.0),
-        "pixel",
-        datasetAttributes
+        datasetAttributes.mapIndexed { idx, attrs ->
+            val downscaledFactors = dimensions[0].zip(dimensions[idx]).map { (z, i) -> z.toDouble() / i }.toDoubleArray()
+            val downscaleTransform = AffineTransform3D()
+            downscaleTransform.scale(downscaledFactors[0], downscaledFactors[1], downscaledFactors[2])
+            N5SingleScaleMetadata(
+                "s$idx",
+                downscaleTransform,
+                downscaledFactors,
+                doubleArrayOf(1.0, 1.0, 1.0),
+                doubleArrayOf(0.0, 0.0, 0.0),
+                "pixel",
+                attrs
+            )
+        }.toTypedArray()
     )
 
-    private val metadataState = object : SingleScaleMetadataState(N5ContainerState("Virtual", Companion.NULL_READER, null), metadata) {
+    private val metadataState = object : MultiScaleMetadataState(N5ContainerState("Virtual", Companion.NULL_READER, null), metadata) {
         override fun <DD : NativeType<DD>, TT : Volatile<DD>> getData(queue: SharedQueue, priority: Int): Array<ImagesWithTransform<DD, TT>> {
 
+            return data.map { datum ->
+                val raiWithInvalidate: TmpVolatileHelpers.RaiWithInvalidate<T> = createVolatileCachedCellImgWithInvalidate(
+                    datum,
+                    queue,
+                    CacheHints(LoadingStrategy.VOLATILE, 0, true)
+                )
+                ImagesWithTransform(datum, raiWithInvalidate.rai, transform, datum.cache, raiWithInvalidate.invalidate) as ImagesWithTransform<DD, TT>
+            }.toTypedArray()
 
-            val test = VolatileViews.wrapAsVolatile(data)
-            val raiWithInvalidate: TmpVolatileHelpers.RaiWithInvalidate<T> = createVolatileCachedCellImgWithInvalidate(
-                data,
-                queue,
-                CacheHints(LoadingStrategy.VOLATILE, 0, true)
-            )
-
-            return arrayOf(ImagesWithTransform(data, raiWithInvalidate.rai, transform, data.cache, raiWithInvalidate.invalidate) as ImagesWithTransform<DD, TT>)
         }
     }
 
