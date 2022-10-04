@@ -9,6 +9,7 @@ object DeviceManager {
         try {
             XTouchMiniMCUControlPanel.build()
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
     }
