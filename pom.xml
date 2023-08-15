@@ -695,11 +695,12 @@
 						<!-- This copies the jar files declared by the Maven build into a single directory.
 						This makes it easy to assemble the final installer package -->
 						<id>copy-dependencies</id>
-						<phase>package</phase>
+						<phase>prepare-package</phase>
 						<goals>
 							<goal>copy-dependencies</goal>
 						</goals>
 						<configuration>
+							<outputDirectory>target/classpath-jars</outputDirectory>
 							<!-- Include only compile stage dependencies (no test dependencies) -->
 							<includeScope>compile</includeScope>
 							<!-- The JavaFX libraries are bundled into the custom JVM, so we don't want to duplicate

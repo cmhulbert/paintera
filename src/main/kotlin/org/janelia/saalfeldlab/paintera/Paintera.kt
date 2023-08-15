@@ -11,6 +11,7 @@ import javafx.event.EventHandler
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Alert
+import javafx.scene.image.Image
 import javafx.scene.input.MouseEvent
 import javafx.stage.Modality
 import javafx.stage.Stage
@@ -28,6 +29,9 @@ import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File
 import java.lang.invoke.MethodHandles
+import java.nio.file.Files
+import java.nio.file.Paths
+import kotlin.io.path.inputStream
 import kotlin.system.exitProcess
 
 
@@ -153,6 +157,7 @@ class Paintera : Application() {
 
 	override fun start(primaryStage: Stage) {
 
+		loadIconsForStage(primaryStage)
 		primaryStage.scene = Scene(paintera.pane)
 		primaryStage.scene.addEventFilter(MouseEvent.ANY, paintera.mouseTracker)
 		registerStylesheets(primaryStage.scene)
@@ -235,6 +240,19 @@ class Paintera : Application() {
 		fun main(args: Array<String>) {
 			System.setProperty("javafx.preloader", PainteraSplashScreen::class.java.canonicalName)
 			launch(Paintera::class.java, *args)
+		}
+
+		private fun loadIconsForStage(stage : Stage) {
+			System.getProperty("app.dir")?.let { appDir ->
+				val iconDir = Paths.get(appDir)
+				Files.newDirectoryStream(iconDir, "icon-*.png").use {dirEntries ->
+					dirEntries.forEach { icon ->
+						icon.inputStream().use {
+							stage.icons += Image(it)
+						}
+					}
+				}
+			}
 		}
 
 		@JvmStatic
