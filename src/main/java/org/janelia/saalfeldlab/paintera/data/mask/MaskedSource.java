@@ -625,7 +625,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 						acceptAsPainted);
 
 				synchronized (progressBinding) {
-					var progress = completedTasks.incrementAndGet() / (double) expectedTasks;
+					var progress = completedTasks.incrementAndGet() / (double)expectedTasks;
 					progressBinding.set(progress);
 				}
 
@@ -658,7 +658,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 					}).get();
 					synchronized (progressBinding) {
-						var progress = completedTasks.incrementAndGet() / (double) expectedTasks;
+						var progress = completedTasks.incrementAndGet() / (double)expectedTasks;
 						progressBinding.set(progress);
 					}
 				} catch (InterruptedException | ExecutionException e) {
@@ -755,7 +755,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 		toTargetScale.apply(positionDouble, positionDouble);
 
-		Arrays.setAll(targetPosition, d -> (long) Math.ceil(positionDouble[d]));
+		Arrays.setAll(targetPosition, d -> (long)Math.ceil(positionDouble[d]));
 	}
 
 	public void resetMasks() throws MaskInUse {
@@ -1085,7 +1085,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 	public RandomAccessibleInterval<UnsignedLongType> getReadOnlyDataCanvas(final int t, final int level) {
 
 		return Converters.convert(
-				(RandomAccessibleInterval<UnsignedLongType>) this.dataCanvases[level],
+				(RandomAccessibleInterval<UnsignedLongType>)this.dataCanvases[level],
 				new TypeIdentity<>(),
 				new UnsignedLongType()
 		);
@@ -1128,7 +1128,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 		final Map<Long, Set<Long>> blocksModifiedByLabel = new HashMap<>();
 		LOG.debug("Initializing affected blocks: {}", affectedBlocks);
-		final var labelsForBlockFutures = new ArrayList<Future<Pair< Long, Set<Long>>>>();
+		final var labelsForBlockFutures = new ArrayList<Future<Pair<Long, Set<Long>>>>();
 		for (final TLongIterator it = affectedBlocks.iterator(); it.hasNext(); ) {
 			final long blockId = it.next();
 			blockSpec.fromLinearIndex(blockId);
@@ -1148,7 +1148,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 				labelsForBlockFutures.add(future);
 			}
 		}
-   		for (Future<Pair< Long, Set<Long>>> labelsForBlockFuture : labelsForBlockFutures) {
+		for (Future<Pair<Long, Set<Long>>> labelsForBlockFuture : labelsForBlockFutures) {
 			try {
 				final Pair<Long, Set<Long>> futurePair = labelsForBlockFuture.get();
 				final var blockId = futurePair.getKey();
@@ -1255,7 +1255,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 			LOG.debug("Interval at lower resolution level: {} {}", Intervals.minAsLongArray(intervalAtLowerRes), Intervals.maxAsLongArray(intervalAtLowerRes));
 
 			// downsample
-			final int[] steps = DoubleStream.of(paintedToLowerScales).mapToInt(d -> (int) d).toArray();
+			final int[] steps = DoubleStream.of(paintedToLowerScales).mapToInt(d -> (int)d).toArray();
 			LOG.debug("Downsample step size: {}", steps);
 			final var blocksModifiedByLabel = downsampleBlocks(
 					Views.extendValue(atPaintedLevel, new UnsignedLongType(Label.INVALID)),
@@ -1394,7 +1394,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 			final Interval interval) {
 
 		if (input instanceof AccessedBlocksRandomAccessible<?>) {
-			final var tracker = (net.imglib2.util.AccessedBlocksRandomAccessible<?>) input;
+			final var tracker = (net.imglib2.util.AccessedBlocksRandomAccessible<?>)input;
 			if (grid.equals(tracker.getGrid())) {
 				final long[] blocks = tracker.listBlocks();
 				LOG.debug("Got these blocks from tracker: {}", blocks);
@@ -1650,7 +1650,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 					final CellLoader<UnsignedLongType> loader = img -> img.forEach(t -> t.set(Label.INVALID));
 					final DiskCachedCellImg<UnsignedLongType, ?> store = f.create(dimensions[level], loader, o);
 					final TmpVolatileHelpers.RaiWithInvalidate<VolatileUnsignedLongType> vstore = TmpVolatileHelpers.createVolatileCachedCellImgWithInvalidate((
-									DiskCachedCellImg) store,
+									DiskCachedCellImg)store,
 							queue,
 							new CacheHints(LoadingStrategy.VOLATILE, canvases.length - 1 - level, true));
 
@@ -1692,7 +1692,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 	public CellGrid getCellGrid(final int t, final int level) {
 
-		return ((AbstractCellImg<?, ?, ?, ?>) underlyingSource().getSource(t, level)).getCellGrid();
+		return ((AbstractCellImg<?, ?, ?, ?>)underlyingSource().getSource(t, level)).getCellGrid();
 	}
 
 	@Override
@@ -1782,7 +1782,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 		final DiskCachedCellImg<UnsignedLongType, ?> store = createMaskStore(maskOpts, level);
 		final TmpVolatileHelpers.RaiWithInvalidate<VolatileUnsignedLongType> vstore =
 				TmpVolatileHelpers.createVolatileCachedCellImgWithInvalidate(
-						(CachedCellImg) store,
+						(CachedCellImg)store,
 						queue,
 						new CacheHints(LoadingStrategy.VOLATILE, 0, true));
 		return new Pair<>(store, vstore);
@@ -1800,7 +1800,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 		final DiskCachedCellImg<UnsignedLongType, ?> store = createMaskStore(maskOpts, imgDimensions, defaultValue);
 		final TmpVolatileHelpers.RaiWithInvalidate<VolatileUnsignedLongType> vstore =
 				TmpVolatileHelpers.createVolatileCachedCellImgWithInvalidate(
-						(CachedCellImg) store,
+						(CachedCellImg)store,
 						queue,
 						new CacheHints(LoadingStrategy.VOLATILE, 0, true));
 		return new Pair<>(store, vstore);
@@ -1866,10 +1866,10 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 				acceptLabel);
 
 		if (store instanceof AccessedBlocksRandomAccessible<?>) {
-			((AccessedBlocksRandomAccessible) store).clear();
+			((AccessedBlocksRandomAccessible)store).clear();
 		}
 		if (vstore instanceof AccessedBlocksRandomAccessible<?>) {
-			((AccessedBlocksRandomAccessible) vstore).clear();
+			((AccessedBlocksRandomAccessible)vstore).clear();
 		}
 	}
 
@@ -1930,7 +1930,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 	private int numContainedVoxels(final int targetLevel) {
 		// always compare to original level to get number of contained voxels.
 		final double[] resolution = DataSource.getRelativeScales(this, 0, 0, targetLevel);
-		return (int) Math.ceil(resolution[0] * resolution[1] * resolution[2]);
+		return (int)Math.ceil(resolution[0] * resolution[1] * resolution[2]);
 	}
 
 }
