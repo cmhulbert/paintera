@@ -29,8 +29,17 @@ jobs:
       - name: Create Test Files
         shell: bash
         run: |
+          extension=".installer"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            extension=".deb"
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            extension=".msi"
+          elif [[ "${{ matrix.os }}" == "macos-latest"  ||  "${{ matrix.os }}" == "macos-14" ]]; then  
+            extension=".dmg"
+          fi
+
           mkdir -p ./target/installer-${{ matrix.os }}
-          echo "${{ matrix.os }}" >> ./target/installer-${{ matrix.os }}/Paintera-1.0.installer
+          echo "${{ matrix.os }}" >> ./target/installer-${{ matrix.os }}/Paintera-1.0$extension
 #      - name: Download Wix
 #        uses: i3h/download-release-asset@v1
 #        if: matrix.os == 'windows-latest'
