@@ -27,8 +27,8 @@ jobs:
       - name: Create Test Files
         shell: bash
         run: |
-          mkdir -p ./target/installer-${{ matrix-os }}
-          echo "${{ matrix.os }} >> ./target/installer-${{ matrix-os }}/Paintera-1.0.installer
+          mkdir -p ./target/installer-${{ matrix.os }}
+          echo "${{ matrix.os }} >> ./target/installer-${{ matrix.os }}/Paintera-1.0.installer
 #      - name: Download Wix
 #        uses: i3h/download-release-asset@v1
 #        if: matrix.os == 'windows-latest'
