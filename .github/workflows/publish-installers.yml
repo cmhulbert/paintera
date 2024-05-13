@@ -43,6 +43,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Paintera ${{ env.VERSION }}
+          tag_name: ${{ github.ref }}
           prerelease: false
           files: |
             Paintera-${{ env.VERSION }}-Windows.msi
