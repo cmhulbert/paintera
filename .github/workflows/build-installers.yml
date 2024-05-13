@@ -28,7 +28,8 @@ jobs:
           echo "VERSION=$short_version" >> $GITHUB_ENV
       - name: Create Test Files
         shell: bash
-        run: mkdir -p ./target/installer-${{ matrix.os }}
+        run: |
+          mkdir -p ./target/installer-${{ matrix.os }}
           echo "${{ matrix.os }}" >> ./target/installer-${{ matrix.os }}/Paintera-1.0.installer
 #      - name: Download Wix
 #        uses: i3h/download-release-asset@v1
