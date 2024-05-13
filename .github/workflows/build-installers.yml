@@ -19,6 +19,8 @@ jobs:
     env:
       RELEASE_INSTALLERS: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Set Version
         shell: bash
         run: |
