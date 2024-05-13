@@ -47,14 +47,3 @@ jobs:
             Paintera-${{ env.VERSION }}_x86_64.deb
             Paintera-${{ env.VERSION }}-MacOS.dmg
             Paintera-${{ env.VERSION }}-MacOS-AppleSilicon.dmg
-
-      - name: Update Automatic Release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN}}"
-          automatic_release_tag: ${{ matrix.os }}
-          prerelease: false
-          title: ${{ matrix.os }} Development Build
-          files: |
-            ${{ env.DMG_PATH }}
-            ./target/installer-${{ matrix.os }}/*
