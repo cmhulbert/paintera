@@ -219,9 +219,8 @@ object PaintLabelMode : AbstractToolMode() {
 	}
 
 	private fun getDeleteReplaceIdActions() = painteraActionSet("delete_label", LabelActionType.Delete) {
-		KEY_PRESSED(DELETE_ID) {
-			verify("ReplaceLabel is valid") { ReplaceLabel.isValid(it) }
-			onAction { ReplaceLabel.showDialog() }
+		KEY_PRESSED ( DELETE_ID) {
+			onAction { ReplaceLabel(it) }
 		}
 	}
 

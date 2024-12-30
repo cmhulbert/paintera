@@ -1,11 +1,11 @@
 package org.janelia.saalfeldlab.paintera.control.actions.paint
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import javafx.beans.property.SimpleDoubleProperty
-import javafx.beans.property.SimpleStringProperty
 import javafx.event.ActionEvent
+import javafx.event.Event
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Dialog
+import javafx.scene.input.KeyEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,8 +19,6 @@ import net.imglib2.util.Intervals
 import net.imglib2.view.IntervalView
 import org.janelia.saalfeldlab.fx.actions.verifyPermission
 import org.janelia.saalfeldlab.fx.extensions.createObservableBinding
-import org.janelia.saalfeldlab.fx.extensions.nonnull
-import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey
 import org.janelia.saalfeldlab.paintera.Paintera
@@ -43,29 +41,9 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 
 	private val LOG = KotlinLogging.logger { }
 
-	private val state = ReplaceLabelState()
-
-	private val replacementLabelProperty = state.replacementLabel
-	private val replacementLabel by replacementLabelProperty.nonnullVal()
-
-	private val activateReplacementProperty = state.activeReplacementLabel.apply {
-		subscribe { _, activate ->
-			if (activate)
-				activateReplacementLabel(0L, replacementLabel)
-			else
-				activateReplacementLabel(replacementLabel, 0L)
-		}
-	}
-	private val activateReplacement by activateReplacementProperty.nonnull()
-
-	private val progressProperty = SimpleDoubleProperty()
-	private val progressTextProperty = SimpleStringProperty()
-
 	init {
 		verifyPermission(PaintActionType.Erase, PaintActionType.Background, PaintActionType.Fill)
-		onAction(state) {
-			showDialog()
-		}
+		onAction(ReplaceLabelState()) { showDialog(it) }
 	}
 
 	private fun <T : IntegerType<T>> ReplaceLabelState<T>.generateReplaceLabelMask(newLabel: Long, vararg fragments: Long) = with(maskedSource) {
@@ -126,19 +104,7 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 		sourceState.refreshMeshes()
 	}
 
-	private fun activateReplacementLabel(current: Long, next: Long) {
-		val selectedIds = state.paintContext.selectedIds
-		if (current != selectedIds.lastSelection) {
-			selectedIds.deactivate(current)
-		}
-		if (activateReplacement && next > 0L) {
-			selectedIds.activateAlso(selectedIds.lastSelection, next)
-		}
-	}
-
-	fun showDialog() = state.showDialog()
-
-	private fun ReplaceLabelState<*>.showDialog() {
+	private fun ReplaceLabelState<*>.showDialog(event: Event?) {
 		Dialog<Boolean>().apply {
 			isResizable = true
 			Paintera.registerStylesheets(dialogPane)
@@ -152,30 +118,24 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 			progressProperty.unbind()
 			progressProperty.set(0.0)
 
-			val replaceLabelUI = ReplaceLabelUI(state)
-			replaceLabelUI.progressBarProperty.bind(progressProperty)
-			replaceLabelUI.progressLabelText.bind(progressTextProperty)
-
-			dialogPane.content = replaceLabelUI
+			dialogPane.content = ReplaceLabelUI(this@showDialog)
 			dialogPane.lookupButton(ButtonType.APPLY).also { applyButton ->
 				applyButton.disableProperty().bind(paintera.baseView.isDisabledProperty)
 				applyButton.cursorProperty().bind(paintera.baseView.node.cursorProperty())
 				applyButton.addEventFilter(ActionEvent.ACTION) { event ->
 					event.consume()
-					val replacementLabel = state.replacementLabel.value
-					val fragmentsToReplace = state.fragmentsToReplace.toLongArray()
+					val replacementLabel = replacementLabel.value
+					val fragmentsToReplace = fragmentsToReplace.toLongArray()
 					if (replacementLabel != null && replacementLabel >= 0 && fragmentsToReplace.isNotEmpty()) {
 						CoroutineScope(Dispatchers.Default).async {
 							replaceLabels(replacementLabel, *fragmentsToReplace)
-							if (activateReplacement)
-								state.sourceState.selectedIds.activate(replacementLabel)
+							if (activeReplacementLabel.value)
+								sourceState.selectedIds.activate(replacementLabel)
 						}
 					}
 				}
 			}
-			dialogPane.lookupButton(ButtonType.CANCEL).apply {
-				disableProperty().bind(paintContext.dataSource.isApplyingMaskProperty())
-			}
+			dialogPane.lookupButton(ButtonType.CANCEL).disableProperty().bind(paintContext.dataSource.isApplyingMaskProperty())
 			dialogPane.scene.window.setOnCloseRequest {
 				if (paintContext.dataSource.isApplyingMaskProperty().get())
 					it.consume()
@@ -207,7 +167,6 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 
 		return blocksFromSource + blocksFromCanvas
 	}
-
 }
 
 private fun <T : IntegerType<T>> MaskedSource<T, out Type<*>>.addReplaceMaskAsSource(

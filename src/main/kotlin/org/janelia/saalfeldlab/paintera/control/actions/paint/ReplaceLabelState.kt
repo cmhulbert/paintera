@@ -1,9 +1,6 @@
 package org.janelia.saalfeldlab.paintera.control.actions.paint
 
-import javafx.beans.property.BooleanProperty
-import javafx.beans.property.LongProperty
-import javafx.beans.property.SimpleBooleanProperty
-import javafx.beans.property.SimpleLongProperty
+import javafx.beans.property.*
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.event.Event
@@ -28,6 +25,9 @@ interface ReplaceLabelUIState {
 	val fragmentsToReplace: ObservableList<Long>
 	val replacementLabel: LongProperty
 	val activeReplacementLabel: BooleanProperty
+
+	val progressProperty : DoubleProperty
+	val progressTextProperty : StringProperty
 
 	fun fragmentsForSegment(segment: Long): LongArray
 	fun nextId(): Long
@@ -72,13 +72,25 @@ class ReplaceLabelState<T>() : ActionState(), ReplaceLabelUIState
 			.toSet()
 			.toLongArray()
 
-	override fun fragmentsForSegment(segment: Long): LongArray {
-		return assignment.getFragments(segment).toArray()
-	}
+	override val progressProperty = SimpleDoubleProperty()
+	override val progressTextProperty = SimpleStringProperty()
 
 	override val fragmentsToReplace: ObservableList<Long> = FXCollections.observableArrayList()
 	override val replacementLabel: LongProperty = SimpleLongProperty(0L)
 	override val activeReplacementLabel = SimpleBooleanProperty(false)
+
+	override fun reset() {
+		progressProperty.unbind()
+		progressTextProperty.unbind()
+
+		fragmentsToReplace.clear()
+		replacementLabel.unbind()
+		activeReplacementLabel.unbind()
+	}
+
+	override fun fragmentsForSegment(segment: Long): LongArray {
+		return assignment.getFragments(segment).toArray()
+	}
 
 	override fun nextId() = sourceState.nextId()
 

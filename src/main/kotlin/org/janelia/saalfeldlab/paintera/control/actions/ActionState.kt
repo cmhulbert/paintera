@@ -7,6 +7,7 @@ import kotlin.reflect.KMutableProperty0
 //TODO Caleb: Move to Saalfx
 abstract class ActionState {
 	abstract fun <E : Event> Action<E>.verifyState()
+	open fun reset() = Unit
 }
 
 fun <E : Event> Action<E>.verifyState(state: ActionState) = state.run { verifyState() }
