@@ -256,9 +256,9 @@ open class SamTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*
 			modeToolsBar.show(false)
 		}
 		super.activate()
-		if (mode is PaintLabelMode) {
-			PaintLabelMode.disableUnfocusedViewers()
-			mode.activeViewerProperty.unbind()
+		(mode as? PaintLabelMode)?.apply {
+			disableUnfocusedViewers()
+			activeViewerProperty.unbind()
 		}
 		primaryClickLabel = null
 		initializeSam()
@@ -276,9 +276,7 @@ open class SamTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*
 
 	override fun deactivate() {
 		cleanup()
-		if (mode is PaintLabelMode) {
-			PaintLabelMode.enableAllViewers()
-		}
+		(mode as? PaintLabelMode)?.enableAllViewers()
 		super.deactivate()
 	}
 

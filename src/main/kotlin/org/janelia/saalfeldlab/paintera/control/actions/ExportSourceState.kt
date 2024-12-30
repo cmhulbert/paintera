@@ -9,36 +9,31 @@ import net.imglib2.img.cell.CellGrid
 import net.imglib2.type.NativeType
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.integer.AbstractIntegerType
-import org.janelia.saalfeldlab.n5.DataType
-import org.janelia.saalfeldlab.n5.DatasetAttributes
-import org.janelia.saalfeldlab.n5.GsonKeyValueN5Reader
-import org.janelia.saalfeldlab.n5.N5Writer
+import org.janelia.saalfeldlab.fx.extensions.createObservableBinding
+import org.janelia.saalfeldlab.n5.*
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils
+import org.janelia.saalfeldlab.n5.universe.metadata.N5SingleScaleMetadata
 import org.janelia.saalfeldlab.n5.universe.metadata.N5SpatialDatasetMetadata
 import org.janelia.saalfeldlab.n5.universe.metadata.axes.Axis
 import org.janelia.saalfeldlab.n5.universe.metadata.ome.ngff.v04.OmeNgffMetadata
 import org.janelia.saalfeldlab.n5.universe.metadata.ome.ngff.v04.OmeNgffMetadataParser
 import org.janelia.saalfeldlab.paintera.Paintera
-import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
+import org.janelia.saalfeldlab.paintera.state.SourceStateBackendN5
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
-import org.janelia.saalfeldlab.paintera.state.label.n5.N5BackendLabel
 import org.janelia.saalfeldlab.paintera.state.metadata.MetadataUtils.Companion.offset
 import org.janelia.saalfeldlab.paintera.state.metadata.MetadataUtils.Companion.resolution
 import org.janelia.saalfeldlab.paintera.state.metadata.MultiScaleMetadataState
-import org.janelia.saalfeldlab.paintera.state.metadata.get
 import org.janelia.saalfeldlab.paintera.ui.dialogs.AnimatedProgressBarAlert
 import org.janelia.saalfeldlab.util.convertRAI
 import org.janelia.saalfeldlab.util.interval
 import org.janelia.saalfeldlab.util.n5.N5Helpers.MAX_ID_KEY
+import org.janelia.saalfeldlab.util.n5.N5Helpers.forEachBlock
 import org.janelia.saalfeldlab.util.n5.N5Helpers.forEachBlockExists
-import java.util.concurrent.atomic.AtomicInteger
 
 class ExportSourceState {
 
-	val backendProperty = SimpleObjectProperty<N5BackendLabel<*, *>?>()
-	val maxIdProperty = SimpleLongProperty(-1)
 	val sourceStateProperty = SimpleObjectProperty<ConnectomicsLabelState<*, *>?>()
-	val sourceProperty = SimpleObjectProperty<MaskedSource<*, *>?>()
+	val maxIdProperty = SimpleLongProperty(-1)
 
 	val datasetProperty = SimpleStringProperty()
 	val exportLocationProperty = SimpleStringProperty()
@@ -48,8 +43,8 @@ class ExportSourceState {
 
 	private val exportableSourceRAI: RandomAccessibleInterval<out NativeType<*>>?
 		get() {
-			val source = sourceProperty.value ?: return null
-			val backend = backendProperty.value ?: return null
+			val source = sourceStateProperty.get()?.dataSource ?: return null
+			val backend = sourceStateProperty.get()?.backend ?: return null
 
 			val fragmentMapper = backend.fragmentSegmentAssignment
 
@@ -74,10 +69,10 @@ class ExportSourceState {
 	//  - Export multiscale pyramid
 	//  - Export interval of label source
 	//  - custom fragment to segment mapping
-	fun exportSource(showProgressAlert : Boolean = false) {
+	fun exportSource(showProgressAlert: Boolean = false) {
 
-		val backend = backendProperty.value ?: return
-		val source = sourceProperty.value ?: return
+		val backend = sourceStateProperty.value?.backend ?: return
+		val source = sourceStateProperty.value?.dataSource ?: return
 		val exportLocation = exportLocationProperty.value ?: return
 		val dataset = datasetProperty.value ?: return
 
@@ -85,24 +80,53 @@ class ExportSourceState {
 		val scaleLevel = scaleLevelProperty.value
 		val dataType = dataTypeProperty.value
 
-		val sourceMetadata: N5SpatialDatasetMetadata = backend.metadataState.let { it as? MultiScaleMetadataState }?.metadata?.get(scaleLevel) ?: backend.metadataState as N5SpatialDatasetMetadata
-		val n5 = backend.container as GsonKeyValueN5Reader
+		val metadata = (backend as? SourceStateBackendN5<*, *>)?.run {
+			metadataState.let { it as? MultiScaleMetadataState }?.highestResMetadata ?: metadataState.metadata as N5SpatialDatasetMetadata
+		}
+
+		val imgSize = source.grids[scaleLevel].run { gridDimensions.apply { forEachIndexed { idx, size -> set(idx, size * cellDimensions[idx]) } } }
+
+		val sourceMetadata: N5SpatialDatasetMetadata = metadata ?: let {
+			N5SingleScaleMetadata(
+				dataset,
+				source.getSourceTransformCopy(0, scaleLevel),
+				doubleArrayOf(1.0, 1.0, 1.0),
+				backend.resolution,
+				backend.translation,
+				source.voxelDimensions?.unit() ?: "pixel",
+				DatasetAttributes(
+					imgSize,
+					source.grids[scaleLevel].cellDimensions,
+					dataType,
+					GzipCompression()
+				)
+			)
+		}
+
+
+		val n5 = (backend as? SourceStateBackendN5<*, *>)?.container as? GsonKeyValueN5Reader
 
 		val exportRAI = exportableSourceRAI!!
-		val cellGrid: CellGrid = source.getCellGrid(0, scaleLevel)
+		val cellGrid: CellGrid = source.getGrid(scaleLevel)
 		val sourceAttributes: DatasetAttributes = sourceMetadata.attributes
 
 		val exportAttributes = DatasetAttributes(sourceAttributes.dimensions, sourceAttributes.blockSize, dataType, sourceAttributes.compression)
 
 		val totalBlocks = cellGrid.gridDimensions.reduce { acc, dim -> acc * dim }
+		val count = SimpleIntegerProperty(0)
+		val labelProp = SimpleStringProperty("Blocks Written 0 / $totalBlocks").apply {
+			bind(count.createObservableBinding { "Blocks Written ${it.value} / $totalBlocks" })
+		}
+		val progressProp = SimpleDoubleProperty(0.0).apply {
+			bind(count.createObservableBinding { it.get().toDouble() / totalBlocks })
+		}
+
 		val (processedBlocks, progressUpdater) = if (showProgressAlert) {
-			val count = AtomicInteger()
-			count to  AnimatedProgressBarAlert(
+			count to AnimatedProgressBarAlert(
 				"Export Label Source",
 				"Exporting data...",
-				"Blocks Written",
-				count::get,
-				totalBlocks.toInt()
+				labelProp,
+				progressProp,
 			)
 		} else null to null
 
@@ -113,7 +137,12 @@ class ExportSourceState {
 				writer.setAttribute(dataset, MAX_ID_KEY, maxIdProperty.value)
 			val scaleLevelDataset = "$dataset/s$scaleLevel"
 
-			forEachBlockExists(n5, sourceMetadata.path, processedBlocks) { cellInterval ->
+			n5?.let {
+				forEachBlockExists(it, sourceMetadata.path, processedBlocks) { cellInterval ->
+					val cellRai = exportRAI.interval(cellInterval)
+					N5Utils.saveBlock(cellRai, writer, scaleLevelDataset, exportAttributes)
+				}
+			} ?: forEachBlock(cellGrid, processedBlocks) { cellInterval ->
 				val cellRai = exportRAI.interval(cellInterval)
 				N5Utils.saveBlock(cellRai, writer, scaleLevelDataset, exportAttributes)
 			}
