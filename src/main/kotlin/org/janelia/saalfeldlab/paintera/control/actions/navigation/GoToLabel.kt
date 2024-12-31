@@ -46,7 +46,6 @@ object GoToLabel : MenuAction("Go to _Label...") {
 		reset()
 		initializeWithCurrentLabel()
 		PainteraAlerts.confirmation("Go", "Cancel", true).apply {
-			isResizable = true
 			Paintera.registerStylesheets(dialogPane)
 			title = name?.replace("_", "")
 			headerText = "Go to Label"

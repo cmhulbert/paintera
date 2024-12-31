@@ -14,7 +14,7 @@ open class AnimatedProgressBar : ProgressBar() {
 	private val timeline = Timeline()
 
 	var reversible = false
-	var baseDuration = Duration.seconds(1.0)
+	var baseDuration: Duration = Duration.seconds(1.0)
 
 	val progressTargetProperty: DoubleProperty = SimpleDoubleProperty().apply {
 		subscribe { progress ->

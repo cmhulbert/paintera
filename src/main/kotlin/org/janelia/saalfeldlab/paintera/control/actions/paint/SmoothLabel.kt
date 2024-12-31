@@ -42,6 +42,7 @@ import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.data.mask.SourceMask
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
 import org.janelia.saalfeldlab.paintera.util.IntervalHelpers.Companion.smallestContainingInterval
 import org.janelia.saalfeldlab.util.*
 import java.util.concurrent.LinkedBlockingQueue
@@ -94,7 +95,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 			kernelSizeProperty.unbind()
 			progressProperty.value = 0.0
 			startSmoothTask()
-			showSmoothDialog()
+			showDialog()
 		}
 	}
 
@@ -109,14 +110,17 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		}
 	}
 
-	private fun SmoothLabelState.showSmoothDialog() {
+	private fun SmoothLabelState.showDialog() {
+		reset()
 		Dialog<Boolean>().apply {
+			isResizable = true
 			Paintera.registerStylesheets(dialogPane)
 			dialogPane.buttonTypes += ButtonType.APPLY
 			dialogPane.buttonTypes += ButtonType.CANCEL
 			title = name?.replace("_", "")
+			headerText = "Smooth Label"
 
-			dialogPane.content = SmoothLabelUI(this@showSmoothDialog)
+			dialogPane.content = SmoothLabelUI(this@showDialog)
 
 			val cleanupOnDialogClose = {
 				scopeJob?.cancel()
@@ -142,9 +146,11 @@ object SmoothLabel : MenuAction("_Smooth...") {
 					finalizeSmoothing = true
 				}
 			}
-			val cancelButton = dialogPane.lookupButton(ButtonType.CANCEL)
-			cancelButton.disableProperty().bind(paintContext.dataSource.isApplyingMaskProperty())
-			cancelButton.addEventFilter(ActionEvent.ACTION) { _ -> cleanupOnDialogClose() }
+			dialogPane.lookupButton(ButtonType.CANCEL).also { cancelButton ->
+				cancelButton.disableProperty().bind(paintContext.dataSource.isApplyingMaskProperty())
+				cancelButton.addEventFilter(ActionEvent.ACTION) { _ -> cleanupOnDialogClose() }
+			}
+
 			dialogPane.scene.window.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
 				if (event.code == KeyCode.ESCAPE && (progressProperty.value < 1.0 || (scopeJob?.isActive == true))) {
 					/* Cancel if still running */
@@ -152,11 +158,11 @@ object SmoothLabel : MenuAction("_Smooth...") {
 					cancelActiveSmoothing("Escape Pressed")
 				}
 			}
+
 			dialogPane.scene.window.setOnCloseRequest {
 				if (!paintContext.dataSource.isApplyingMaskProperty().get()) {
 					cleanupOnDialogClose()
 				}
-
 			}
 		}.show()
 	}
@@ -202,7 +208,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 						intervals = updateSmoothMask(preview).map { it.smallestContainingInterval }
 						if (!preview) break
 						else requestRepaintOverIntervals(intervals)
-					} catch (c: CancellationException) {
+					} catch (_: CancellationException) {
 						intervals = null
 						paintContext.dataSource.resetMasks()
 						paintera.baseView.orthogonalViews().requestRepaint()
@@ -236,7 +242,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				}
 
 				paintera.baseView.disabledPropertyBindings -= task
-				smoothTriggerSubscription?.unsubscribe()
+				smoothTriggerSubscription.unsubscribe()
 				paintera.baseView.orthogonalViews().setScreenScales(prevScales)
 				convolutionExecutor.shutdown()
 			}
@@ -274,14 +280,17 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		val sourceImg = maskedSource.getReadOnlyDataBackground(0, scale0)
 		val canvasImg = maskedSource.getReadOnlyDataCanvas(0, scale0)
 
-		val bundleSourceImg = BundleView(sourceImg.convert(UnsignedLongType(Imglib2Label.INVALID)) { input, output -> output.set(input.realDouble.toLong()) }.interval(sourceImg)).interval(sourceImg)
+		val source = sourceImg.convert(UnsignedLongType(Imglib2Label.INVALID)) { input, output ->
+			output.set(input.realDouble.toLong())
+		}
+		val bundleSourceImg = BundleView(source).interval(sourceImg)
 
 		val cellGrid = maskedSource.getCellGrid(0, scale0)
 		val labelMask = Lazy.generate(bundleSourceImg, cellGrid.cellDimensions, DoubleType(0.0), AccessFlags.setOf()) { labelMaskChunk ->
 			val sourceChunk = bundleSourceImg.interval(labelMaskChunk)
 			val canvasChunk = canvasImg.interval(labelMaskChunk)
 
-			LoopBuilder.setImages(canvasChunk, sourceChunk, labelMaskChunk).multiThreaded().forEachPixel { canvasLabel, sourceBundle, maskVal ->
+			LoopBuilder.setImages(canvasChunk, sourceChunk, labelMaskChunk).forEachPixel { canvasLabel, sourceBundle, maskVal ->
 				val hasLabel = canvasLabel.get().let { label ->
 					if (label != Imglib2Label.INVALID && label in labels)
 						1.0
