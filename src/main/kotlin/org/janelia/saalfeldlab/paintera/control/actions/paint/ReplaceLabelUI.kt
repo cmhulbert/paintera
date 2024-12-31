@@ -26,7 +26,7 @@ import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelUI.Rep
 import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelUI.ReplaceIdSelection.entries
 import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelUI.ReplaceTargetSelection.Companion.getReplaceTargetSelectionButtons
 import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelUI.ReplaceTargetSelection.entries
-import org.janelia.saalfeldlab.paintera.ui.UnsignedLongTextFormatter
+import org.janelia.saalfeldlab.paintera.ui.PositiveLongTextFormatter
 import org.janelia.saalfeldlab.paintera.ui.hGrow
 import org.janelia.saalfeldlab.paintera.ui.hvGrow
 
@@ -139,7 +139,7 @@ class ReplaceLabelUI(
 		.selectedToggleProperty()
 		.createObservableBinding { it.value?.userData == ReplaceTargetSelection.DELETE }
 
-	private val replaceWithIdFormatter = UnsignedLongTextFormatter().also {
+	private val replaceWithIdFormatter = PositiveLongTextFormatter().also {
 		state.replacementLabel.unbind()
 		state.replacementLabel.bind(it.valueProperty())
 	}
@@ -163,7 +163,7 @@ class ReplaceLabelUI(
 
 	private val addFragmentField = TextField().hGrow {
 		promptText = "Add a Fragment ID to Replace..."
-		textFormatter = UnsignedLongTextFormatter()
+		textFormatter = PositiveLongTextFormatter()
 		onAction = EventHandler { submitFragmentHandler() }
 	}
 
@@ -179,14 +179,14 @@ class ReplaceLabelUI(
 	}
 	private val addSegmentField = TextField().hGrow {
 		promptText = "Add a Segment ID to Replace..."
-		textFormatter = UnsignedLongTextFormatter()
+		textFormatter = PositiveLongTextFormatter()
 		onAction = EventHandler { submitSegmentHandler() }
 	}
 
 	private val submitSegmentHandler: () -> Unit = {
 		addSegmentField.run {
 			commitValue()
-			(textFormatter as? UnsignedLongTextFormatter)?.run {
+			(textFormatter as? PositiveLongTextFormatter)?.run {
 				value?.let { addSegment(it) }
 				value = null
 			}
@@ -206,7 +206,7 @@ class ReplaceLabelUI(
 	private val submitFragmentHandler: () -> Unit = {
 		addFragmentField.run {
 			commitValue()
-			(textFormatter as? UnsignedLongTextFormatter)?.run {
+			(textFormatter as? PositiveLongTextFormatter)?.run {
 				value?.let { addFragment(it) }
 				value = null
 			}
@@ -306,7 +306,7 @@ class ReplaceLabelUI(
 		}
 		children += HBox().hGrow {
 			spacing = 10.0
-			children += Label().hGrow().apply {
+			children += Label().hGrow {
 				alignment = Pos.CENTER_LEFT
 				textProperty().bind(state.progressTextProperty)
 				maxWidthProperty().bind(this@hGrow.widthProperty().createObservableBinding { it.doubleValue() * .2 })

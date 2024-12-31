@@ -1,0 +1,39 @@
+package org.janelia.saalfeldlab.paintera.control.actions.navigation
+
+import bdv.viewer.Source
+import javafx.beans.property.SimpleLongProperty
+import javafx.event.Event
+import net.imglib2.type.numeric.IntegerType
+import org.janelia.saalfeldlab.bdv.fx.viewer.ViewerPanelFX
+import org.janelia.saalfeldlab.fx.actions.Action
+import org.janelia.saalfeldlab.paintera.control.actions.ActionState
+import org.janelia.saalfeldlab.paintera.control.actions.verify
+import org.janelia.saalfeldlab.paintera.control.modes.NavigationTool
+import org.janelia.saalfeldlab.paintera.control.navigation.TranslationController
+import org.janelia.saalfeldlab.paintera.paintera
+import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
+
+internal class GoToLabelState : ActionState(), GoToLabelUIState {
+
+	internal lateinit var sourceState: ConnectomicsLabelState<*, *>
+	internal lateinit var source: Source<out IntegerType<*>>
+	internal lateinit var viewer: ViewerPanelFX
+	internal lateinit var translationController: TranslationController
+
+	override val labelProperty = SimpleLongProperty()
+
+
+	override fun <E : Event> Action<E>.verifyState() {
+		verify(::source, "Source is Active") { paintera.baseView.sourceInfo().currentSourceProperty().value as? Source<out IntegerType<*>> }
+		verify(::sourceState, "Label Source is Active") { paintera.baseView.sourceInfo().getState(source) as? ConnectomicsLabelState<*, *> }
+		verify(::viewer, "Active Viewer Detected") { paintera.activeViewer.value }
+		verify(::translationController, "Active Viewer Detected") { NavigationTool.translationController }
+
+		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
+	}
+
+	internal fun initializeWithCurrentLabel() {
+		labelProperty.unbind()
+		labelProperty.value = sourceState.selectedIds.lastSelection
+	}
+}
