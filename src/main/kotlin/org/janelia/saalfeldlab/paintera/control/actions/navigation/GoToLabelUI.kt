@@ -13,7 +13,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
-import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread.Companion.invoke
 import org.janelia.saalfeldlab.paintera.ui.PositiveLongTextFormatter
 import org.janelia.saalfeldlab.paintera.ui.hGrow
 import org.janelia.saalfeldlab.paintera.ui.hvGrow
@@ -39,7 +38,6 @@ class GoToLabelUI(val state: GoToLabelUIState) : HBox() {
 		}
 	}
 }
-
 
 
 fun main() {

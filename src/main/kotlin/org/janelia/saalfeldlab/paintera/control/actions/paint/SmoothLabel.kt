@@ -42,11 +42,9 @@ import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.data.mask.SourceMask
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
-import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
 import org.janelia.saalfeldlab.paintera.util.IntervalHelpers.Companion.smallestContainingInterval
 import org.janelia.saalfeldlab.util.*
 import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import kotlin.math.log10
@@ -130,7 +128,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				close()
 			}
 			dialogPane.lookupButton(ButtonType.APPLY).also { applyButton ->
-				applyButton.disableProperty().bind(paintera.baseView.isDisabledProperty.or(replacementLabelProperty.isNull) )
+				applyButton.disableProperty().bind(paintera.baseView.isDisabledProperty.or(replacementLabelProperty.isNull))
 				applyButton.cursorProperty().bind(paintera.baseView.node.cursorProperty())
 				applyButton.addEventFilter(ActionEvent.ACTION) { event ->
 					//So the dialog doesn't close until the smoothing is done
@@ -331,7 +329,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		return blocksFromSource + blocksFromCanvas
 	}
 
-	private fun SmoothLabelState.pruneBlock(blocksWithLabel: List<Interval>): List<RealInterval> {
+	private fun SmoothLabelState.getBlocksInView(blocksWithLabel: List<Interval>): List<RealInterval> {
 		val viewsInSourceSpace = viewerIntervalsInSourceSpace()
 
 		/* remove any blocks that don't intersect with them*/
@@ -362,23 +360,21 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 		replacementLabelProperty.value ?: return emptyList()
 		/* Just to show that smoothing has started */
-		progressProperty.value = 0.0 // The listener only always reseting to zero if going backward, so do this first
+		progressProperty.value = 0.0
 		progressProperty.value = .05
 
-		val intervalsToSmoothOver = if (preview) pruneBlock(blocksWithLabel) else blocksWithLabel
+		val intervalsToSmoothOver = if (preview) getBlocksInView(blocksWithLabel) else blocksWithLabel
 
 		val scale0 = 0
 		val levelResolution = getLevelResolution(scale0)
 		val sigma = DoubleArray(3) { kernelSizeProperty.value / levelResolution[it] }
 
-		if (convolutionExecutor.isShutdown) {
+		if (convolutionExecutor.isShutdown)
 			convolutionExecutor = newConvolutionExecutor()
-		}
 
 		val convolution = FastGauss.convolution(sigma)
-		if (convolutionExecutor.isShutdown) {
+		if (convolutionExecutor.isShutdown)
 			convolutionExecutor = newConvolutionExecutor()
-		}
 
 
 		val smoothedImg = Lazy.generate(labelMask, cellGrid.cellDimensions, DoubleType(), AccessFlags.setOf()) {}
@@ -390,13 +386,11 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		val smoothOverInterval: suspend CoroutineScope.(RealInterval) -> Job = { slice ->
 			launch {
 				val smoothedSlice = smoothedImg.interval(slice)
-				try {
-					Parallelization.runWithExecutor(convolutionExecutor) { convolution.process(labelMask.extendValue(DoubleType(0.0)), smoothedSlice) }
-				} catch (e: RejectedExecutionException) {
-					if (isActive) {
-						throw e
+				runCatching {
+					Parallelization.runWithExecutor(convolutionExecutor) {
+						convolution.process(labelMask.extendValue(DoubleType(0.0)), smoothedSlice)
 					}
-				}
+				}.exceptionOrNull()?.let { if (isActive) throw it }
 
 				val labels = BundleView(labelMask).interval(slice).cursor()
 				val smoothed = smoothedSlice.cursor()
@@ -406,12 +400,12 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				ensureActive()
 				while (smoothed.hasNext()) {
 					//This is the slow one, check cancellation immediately before and after
-					val smoothness: Double
-					try {
-						smoothness = smoothed.next().get()
-					} catch (e: Exception) {
-						throw CancellationException("Gaussian Convolution Shutdown", e).also { cancel(it) }
+					val smoothness = runCatching { smoothed.next().get() }.getOrElse { e ->
+						val cancellationException = CancellationException("Gaussian Convolution Shutdown", e)
+						cancel(cancellationException)
+						throw cancellationException
 					}
+
 					val labelVal = labels.next().get()
 					val maskVal = maskBundle.next().get()
 					val replacementLabel = replacementLabelProperty.value
@@ -433,6 +427,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		/*Start smoothing */
 		if (!smoothScope.isActive)
 			smoothScope = CoroutineScope(Dispatchers.Default)
+
 		scopeJob = smoothScope.launch {
 			intervalsToSmoothOver.forEach { smoothOverInterval(it) }
 		}
@@ -441,12 +436,10 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		val progressUpdateJob = CoroutineScope(Dispatchers.Default).launch {
 			while (scopeJob?.isActive == true) {
 				with(convolutionExecutor) {
-					progressProperty.value = currentProgressBar.let { currentProgress ->
-						val remaining = 1.0 - currentProgress
-						val numTasksModifier = 1 / log10(taskCount + 10.0)
-						/* Max quarter remaining increments*/
-						currentProgress + (remaining * numTasksModifier).coerceAtMost(.25)
-					}
+					val remaining = 1.0 - currentProgressBar
+					val numTasksModifier = 1 / log10(taskCount + 10.0)
+					/* Max quarter remaining increments*/
+					progressProperty.value = currentProgressBar + (remaining * numTasksModifier).coerceAtMost(.25)
 				}
 				delay(200)
 			}
