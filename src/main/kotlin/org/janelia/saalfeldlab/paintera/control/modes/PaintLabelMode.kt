@@ -220,7 +220,7 @@ object PaintLabelMode : AbstractToolMode() {
 
 	private fun getDeleteReplaceIdActions() = painteraActionSet("delete_label", LabelActionType.Delete) {
 		KEY_PRESSED ( DELETE_ID) {
-			onAction { ReplaceLabel(it) }
+			onAction { ReplaceLabel.deleteMenu()(it) }
 		}
 	}
 

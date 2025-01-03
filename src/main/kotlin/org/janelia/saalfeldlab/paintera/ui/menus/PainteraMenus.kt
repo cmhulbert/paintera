@@ -85,7 +85,8 @@ private val viewMenu by LazyForeignValue(::paintera) {
 }
 private val actionMenuItems = arrayOf(
 	SmoothLabel.menuItem,
-	ReplaceLabel.menuItem,
+	ReplaceLabel.replaceMenu().menuItem,
+	ReplaceLabel.deleteMenu().menuItem,
 	GoToCoordinate.menuItem,
 	GoToLabel.menuItem,
 )

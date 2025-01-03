@@ -14,7 +14,7 @@ import org.janelia.saalfeldlab.paintera.control.navigation.TranslationController
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.SourceState
 
-internal class GoToCoordinateState : ActionState(), GoToCoordinateUIState {
+internal class GoToCoordinateState : ActionState, GoToCoordinateUIState {
 
 	internal lateinit var sourceState: SourceState<*, *>
 	internal lateinit var source: Source<*>
@@ -25,13 +25,6 @@ internal class GoToCoordinateState : ActionState(), GoToCoordinateUIState {
 	override val yProperty = SimpleDoubleProperty()
 	override val zProperty = SimpleDoubleProperty()
 
-	override fun reset() {
-		xProperty.unbind()
-		yProperty.unbind()
-		zProperty.unbind()
-	}
-
-
 	override fun <E : Event> Action<E>.verifyState() {
 		verify(::source, "Source is Active") { paintera.baseView.sourceInfo().currentSourceProperty().value }
 		verify(::sourceState, "Source State is Active") { paintera.baseView.sourceInfo().getState(source) }
@@ -39,6 +32,13 @@ internal class GoToCoordinateState : ActionState(), GoToCoordinateUIState {
 		verify(::translationController, "Active Viewer Detected") { NavigationTool.translationController }
 
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
+	}
+
+	override fun copyVerified() = GoToCoordinateState().also {
+		it.source = this@GoToCoordinateState.source
+		it.sourceState = this@GoToCoordinateState.sourceState
+		it.viewer = this@GoToCoordinateState.viewer
+		it.translationController = this@GoToCoordinateState.translationController
 	}
 
 	internal fun initializeWithCurrentCoordinates() {

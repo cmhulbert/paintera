@@ -5,7 +5,6 @@ import javafx.event.ActionEvent
 import javafx.event.Event
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Dialog
-import javafx.scene.input.KeyEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,6 +24,7 @@ import org.janelia.saalfeldlab.paintera.Paintera
 import org.janelia.saalfeldlab.paintera.control.actions.MenuAction
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.actions.onAction
+import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelState.Mode
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.data.mask.SourceMask
@@ -35,37 +35,39 @@ import org.janelia.saalfeldlab.util.convert
 import org.janelia.saalfeldlab.util.grids.LabelBlockLookupAllBlocks
 import org.janelia.saalfeldlab.util.interval
 import kotlin.math.nextUp
-import net.imglib2.type.label.Label as Imglib2Label
+import net.imglib2.type.label.Label as ImgLib2Label
 
-object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
+class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
+
+	companion object {
+		fun replaceMenu() = ReplaceLabel("_Replace Labels...", Mode.Replace)
+		fun deleteMenu() = ReplaceLabel("_Delete Labels...", Mode.Delete)
+	}
 
 	private val LOG = KotlinLogging.logger { }
 
 	init {
-		verifyPermission(PaintActionType.Erase, PaintActionType.Background, PaintActionType.Fill)
-		onAction(ReplaceLabelState()) { showDialog(it) }
+		val permissions = when (mode) {
+			Mode.Replace -> arrayOf(PaintActionType.Fill)
+			Mode.Delete -> arrayOf(PaintActionType.Erase, PaintActionType.Background)
+			Mode.All -> arrayOf(PaintActionType.Fill, PaintActionType.Erase, PaintActionType.Background)
+		}
+		verifyPermission(*permissions)
+		onAction(::ReplaceLabelState) {
+				initializeForMode(mode)
+			showDialog(it)
+		}
 	}
 
 	private fun <T : IntegerType<T>> ReplaceLabelState<T>.generateReplaceLabelMask(newLabel: Long, vararg fragments: Long) = with(maskedSource) {
 		val dataSource = getDataSource(0, 0)
 
 		val fragmentsSet = fragments.toHashSet()
-		dataSource.convert(UnsignedLongType(Imglib2Label.INVALID)) { src, target ->
-			val value = if (src.integerLong in fragmentsSet) newLabel else Imglib2Label.INVALID
+		dataSource.convert(UnsignedLongType(ImgLib2Label.INVALID)) { src, target ->
+			val value = if (src.integerLong in fragmentsSet) newLabel else ImgLib2Label.INVALID
 			target.set(value)
 		}.interval(dataSource)
 	}
-
-
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.deleteActiveFragment() = replaceActiveFragment(0L)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.deleteActiveSegment() = replaceActiveSegment(0L)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.deleteAllActiveFragments() = replaceAllActiveFragments(0L)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.deleteAllActiveSegments() = replaceAllActiveSegments(0L)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.replaceActiveFragment(newLabel: Long) = replaceLabels(newLabel, activeFragment)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.replaceActiveSegment(newLabel: Long) = replaceLabels(newLabel, *fragmentsForActiveSegment)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.replaceAllActiveFragments(newLabel: Long) = replaceLabels(newLabel, *allActiveFragments)
-	private fun <T : IntegerType<T>> ReplaceLabelState<T>.replaceAllActiveSegments(newLabel: Long) = replaceLabels(newLabel, *fragmentsForActiveSegment)
-
 
 	private fun <T : IntegerType<T>> ReplaceLabelState<T>.replaceLabels(newLabel: Long, vararg oldLabels: Long) = with(maskedSource) {
 		val blocks = blocksForLabels(0, *oldLabels)
@@ -74,7 +76,7 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 		val sourceMask = SourceMask(
 			MaskInfo(0, 0),
 			replacedLabelMask,
-			replacedLabelMask.convert(VolatileUnsignedLongType(Imglib2Label.INVALID)) { input, output ->
+			replacedLabelMask.convert(VolatileUnsignedLongType(ImgLib2Label.INVALID)) { input, output ->
 				output.set(input.integerLong)
 				output.isValid = true
 			}.interval(replacedLabelMask),
@@ -89,16 +91,11 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 			"Blocks: $blocksDone / $numBlocks"
 		}
 		InvokeOnJavaFXApplicationThread {
-			progressTextProperty.unbind()
 			progressTextProperty.bind(progressTextBinding)
 		}
 
 		setMask(sourceMask) { it == newLabel }
-		applyMaskOverIntervals(
-			sourceMask,
-			blocks,
-			progressProperty
-		) { it == newLabel }
+		applyMaskOverIntervals(sourceMask, blocks, progressProperty) { it == newLabel }
 
 		requestRepaintOverIntervals(blocks)
 		sourceState.refreshMeshes()
@@ -112,26 +109,32 @@ object ReplaceLabel : MenuAction("_Replace or Delete Label...") {
 			dialogPane.buttonTypes += ButtonType.CANCEL
 			title = name?.replace("_", "")
 
-			progressTextProperty.unbind()
-			progressTextProperty.set("")
-
-			progressProperty.unbind()
-			progressProperty.set(0.0)
-
-			dialogPane.content = ReplaceLabelUI(this@showDialog)
+			dialogPane.content = ReplaceLabelUI(this@showDialog, mode)
 			dialogPane.lookupButton(ButtonType.APPLY).also { applyButton ->
-				applyButton.disableProperty().bind(paintera.baseView.isDisabledProperty)
+				val disableApply = paintera.baseView.isDisabledProperty.or(replacementLabelProperty.isNull)
+				applyButton.disableProperty().bind(disableApply)
 				applyButton.cursorProperty().bind(paintera.baseView.node.cursorProperty())
 				applyButton.addEventFilter(ActionEvent.ACTION) { event ->
 					event.consume()
-					val replacementLabel = replacementLabel.value
+					val replacementLabel = replacementLabelProperty.value ?: return@addEventFilter
 					val fragmentsToReplace = fragmentsToReplace.toLongArray()
-					if (replacementLabel != null && replacementLabel >= 0 && fragmentsToReplace.isNotEmpty()) {
-						CoroutineScope(Dispatchers.Default).async {
-							replaceLabels(replacementLabel, *fragmentsToReplace)
-							if (activeReplacementLabel.value)
-								sourceState.selectedIds.activate(replacementLabel)
-						}
+					val validForMode = when (mode) {
+						Mode.Replace -> replacementLabel > 0
+						Mode.Delete -> replacementLabel == 0L
+						Mode.All -> replacementLabel >= 0
+					}
+					if (!validForMode) {
+						LOG.warn { "Cannot ${mode.name} Labels, invalid replacement label $replacementLabel for mode ($mode)" }
+						return@addEventFilter
+					}
+					if (fragmentsToReplace.isEmpty()) {
+						LOG.warn { "Cannot ${mode.name} Labels, no fragment IDs selected" }
+						return@addEventFilter
+					}
+					CoroutineScope(Dispatchers.Default).async {
+						replaceLabels(replacementLabel, *fragmentsToReplace)
+						if (activateReplacementLabelProperty.value)
+							sourceState.selectedIds.activate(replacementLabel)
 					}
 				}
 			}

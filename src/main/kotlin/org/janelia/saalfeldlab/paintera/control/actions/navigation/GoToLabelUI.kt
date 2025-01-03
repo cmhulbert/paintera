@@ -1,14 +1,14 @@
 package org.janelia.saalfeldlab.paintera.control.actions.navigation
 
+import javafx.beans.property.BooleanProperty
 import javafx.beans.property.LongProperty
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleLongProperty
 import javafx.event.EventHandler
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Scene
-import javafx.scene.control.Button
-import javafx.scene.control.Label
-import javafx.scene.control.TextField
+import javafx.scene.control.*
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
@@ -20,22 +20,34 @@ import org.janelia.saalfeldlab.paintera.ui.hvGrow
 
 interface GoToLabelUIState {
 	val labelProperty: LongProperty
+	val activateLabelProperty: BooleanProperty
 }
 
-class GoToLabelUI(val state: GoToLabelUIState) : HBox() {
+class GoToLabelUI(val state: GoToLabelUIState) : VBox(5.0) {
 
 	init {
 		hvGrow()
-		spacing = 5.0
 		padding = Insets(5.0)
 		alignment = Pos.CENTER_RIGHT
-		children += Label("Label ID:")
-		children += TextField().hGrow {
-			textFormatter = PositiveLongTextFormatter().apply {
-				value = state.labelProperty.value
-				state.labelProperty.bind(valueProperty())
+		children += HBox(5.0).apply {
+			alignment = Pos.BOTTOM_RIGHT
+			children += Label("Label ID:")
+			children += TextField().hGrow {
+				textFormatter = PositiveLongTextFormatter().apply {
+					value = state.labelProperty.value
+					state.labelProperty.bind(valueProperty())
+				}
 			}
 		}
+		children += HBox(5.0).apply {
+			alignment = Pos.BOTTOM_RIGHT
+			children += Label("Activate Label? ")
+			children += CheckBox().apply {
+				selectedProperty().bindBidirectional(state.activateLabelProperty)
+				isSelected = true
+			}
+		}
+
 	}
 }
 
@@ -45,6 +57,7 @@ fun main() {
 
 		val state = object : GoToLabelUIState {
 			override val labelProperty = SimpleLongProperty(1234L)
+			override val activateLabelProperty = SimpleBooleanProperty(true)
 		}
 
 		val root = VBox()

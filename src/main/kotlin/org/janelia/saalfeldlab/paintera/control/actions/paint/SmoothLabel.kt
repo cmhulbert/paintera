@@ -77,7 +77,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 	init {
 		verifyPermission(PaintActionType.Smooth, PaintActionType.Erase, PaintActionType.Background, PaintActionType.Fill)
-		onAction(SmoothLabelState()) {
+		onAction(::SmoothLabelState) {
 			subscriptions?.unsubscribe()
 			replacementLabelProperty.subscribe { prev, next ->
 				activateReplacementLabel(prev?.toLong(), next?.toLong())
@@ -109,7 +109,6 @@ object SmoothLabel : MenuAction("_Smooth...") {
 	}
 
 	private fun SmoothLabelState.showDialog() {
-		reset()
 		Dialog<Boolean>().apply {
 			isResizable = true
 			Paintera.registerStylesheets(dialogPane)

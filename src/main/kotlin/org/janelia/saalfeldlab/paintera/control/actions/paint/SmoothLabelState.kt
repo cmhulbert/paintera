@@ -1,7 +1,5 @@
 package org.janelia.saalfeldlab.paintera.control.actions.paint
 
-import com.google.api.services.cloudresourcemanager.model.Empty
-import javafx.beans.binding.BooleanExpression
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.SimpleObjectProperty
@@ -22,7 +20,7 @@ import org.janelia.saalfeldlab.paintera.state.metadata.MultiScaleMetadataState
 import kotlin.math.floor
 
 //TODO Caleb: Separate Smooth UI from SmoothAction
-class SmoothLabelState : ActionState(), SmoothLabelUIState {
+class SmoothLabelState : ActionState, SmoothLabelUIState {
 	internal lateinit var labelSource: ConnectomicsLabelState<*, *>
 	internal lateinit var paintContext: StatePaintContext<*, *>
 	internal var mipMapLevel : Int = 0
@@ -49,13 +47,6 @@ class SmoothLabelState : ActionState(), SmoothLabelUIState {
 	override val isApplyingMaskProperty by lazy { paintContext.dataSource.isApplyingMaskProperty }
 
 	override fun nextNewId() = labelSource.idService.next()
-
-	private enum class ProgressStatus(val text: String) {
-		Smoothing("Smoothing... "),
-		Done("        Done "),
-		Applying(" Applying... "),
-		Empty("             ")
-	}
 
 	fun getLevelResolution(level: Int) : DoubleArray {
 		if (level == 0)
@@ -87,5 +78,11 @@ class SmoothLabelState : ActionState(), SmoothLabelUIState {
 		verify("Paint Label Mode is Active") { paintera.currentMode is PaintLabelMode }
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
 		verify("Mask is in Use") { !paintContext.dataSource.isMaskInUseBinding().get() }
+	}
+
+	override fun copyVerified() = SmoothLabelState().also {
+		it.labelSource = this@SmoothLabelState.labelSource
+		it.paintContext = this@SmoothLabelState.paintContext
+		it.mipMapLevel = this@SmoothLabelState.mipMapLevel
 	}
 }

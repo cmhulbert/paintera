@@ -34,11 +34,10 @@ object GoToLabel : MenuAction("Go to _Label...") {
 
 	init {
 		verifyPermission(NavigationActionType.Pan)
-		onAction(GoToLabelState()) { showDialog(it) }
+		onAction(::GoToLabelState) { showDialog(it) }
 	}
 
 	private fun GoToLabelState.showDialog(event: Event?) {
-		reset()
 		initializeWithCurrentLabel()
 		PainteraAlerts.confirmation("Go", "Cancel", true).apply {
 			Paintera.registerStylesheets(dialogPane)
@@ -48,7 +47,8 @@ object GoToLabel : MenuAction("Go to _Label...") {
 			dialogPane.content = GoToLabelUI(this@showDialog)
 		}.showAndWait().takeIf { it.nullable == ButtonType.OK }?.run {
 			val targetLabel = labelProperty.value
-			sourceState.selectedIds.activate(targetLabel)
+			if (activateLabelProperty.value)
+				sourceState.selectedIds.activate(targetLabel)
 			goToCoordinates(targetLabel)
 		}
 	}
