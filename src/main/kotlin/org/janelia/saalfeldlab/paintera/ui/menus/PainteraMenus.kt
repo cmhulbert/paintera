@@ -13,6 +13,7 @@ import javafx.scene.control.SeparatorMenuItem
 import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.fx.ui.MatchSelectionMenu
 import org.janelia.saalfeldlab.paintera.Paintera
+import org.janelia.saalfeldlab.paintera.control.actions.ActionMenu
 import org.janelia.saalfeldlab.paintera.control.actions.navigation.GoToCoordinate
 import org.janelia.saalfeldlab.paintera.control.actions.navigation.GoToLabel
 import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabel
@@ -90,8 +91,8 @@ private val actionMenuItems = arrayOf(
 	GoToCoordinate.menuItem,
 	GoToLabel.menuItem,
 )
-private val actionMenu by LazyForeignValue(::paintera) { Menu("_Actions", null, *actionMenuItems) }
-private val helpMenu by LazyForeignValue(::paintera) { Menu("_Help", null, SHOW_README.menu, SHOW_KEY_BINDINGS.menu, showVersion) }
+private val actionMenu by LazyForeignValue(::paintera) { ActionMenu("_Actions", null, *actionMenuItems) }
+private val helpMenu by LazyForeignValue(::paintera) { ActionMenu("_Help", null, SHOW_README.menu, SHOW_KEY_BINDINGS.menu, showVersion) }
 
 val menuBar by LazyForeignValue(::paintera) {
 	MenuBar(fileMenu, sourcesMenu, actionMenu, viewMenu, helpMenu).apply {
