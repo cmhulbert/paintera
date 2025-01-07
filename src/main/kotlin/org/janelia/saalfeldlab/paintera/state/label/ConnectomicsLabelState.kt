@@ -326,9 +326,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 
 	override fun getDefaultMode(): ControlMode {
 		return if (backend.canWriteToSource()) {
-			PaintLabelMode
+			PaintLabelMode()
 		} else {
-			ViewLabelMode
+			ViewLabelMode()
 		}
 	}
 

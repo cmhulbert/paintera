@@ -141,6 +141,7 @@ enum class LabelSourceStateKeys(lateInitNamedKeyCombo : LateInitNamedKeyCombinat
     SHAPE_INTERPOLATION__AUTO_SAM__NEW_SLICES_BISECT_ALL ( SHIFT_DOWN + QUOTE, "shape interpolation: auto SAM: new slice between all slices" ),
     SHAPE_INTERPOLATION__AUTO_SAM__NEW_SLICE_RIGHT       ( CLOSE_BRACKET, "shape interpolation: auto SAM: new slice right"   ),
     SHAPE_INTERPOLATION__AUTO_SAM__NEW_SLICE_HERE        ( SHIFT_DOWN + A, "shape interpolation: auto SAM: new slice at current location"   ),
+    GO_TO_LABEL                                          (L + CONTROL_DOWN, "go-to-label")
     ;
 
 
