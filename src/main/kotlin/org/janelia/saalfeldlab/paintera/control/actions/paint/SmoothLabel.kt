@@ -36,7 +36,6 @@ import org.janelia.saalfeldlab.paintera.Paintera
 import org.janelia.saalfeldlab.paintera.control.actions.MenuAction
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.actions.onAction
-import org.janelia.saalfeldlab.paintera.control.modes.PaintLabelMode.statePaintContext
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.data.mask.SourceMask
@@ -88,10 +87,6 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				else activateReplacementLabel(replacementLabelProperty.value, 0L)
 			}.also { subscriptions = subscriptions?.and(it) ?: it }
 
-			finalizeSmoothing = false
-			/* Set lateinit values */
-			kernelSizeProperty.unbind()
-			progressProperty.value = 0.0
 			startSmoothTask()
 			showDialog()
 		}
@@ -177,7 +172,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 	@OptIn(ExperimentalCoroutinesApi::class)
 	private fun SmoothLabelState.startSmoothTask() {
-		val prevScales = paintera.activeViewer.get()!!.screenScales
+		val prevScales = viewer.screenScales
 		val smoothTriggerListener = { reason: String ->
 			{ _: Any? ->
 				if (scopeJob?.isActive == true)
@@ -235,7 +230,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 						applyMaskOverIntervals(currentMask, intervals, applyProgressProperty) { it >= 0 }
 					}
 					requestRepaintOverIntervals(intervals)
-					statePaintContext?.refreshMeshes?.invoke()
+					paintContext.refreshMeshes()
 				}
 
 				paintera.baseView.disabledPropertyBindings -= task

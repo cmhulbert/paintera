@@ -29,7 +29,7 @@ internal class GoToLabelState : ActionState, GoToLabelUIState {
 	override fun <E : Event> Action<E>.verifyState() {
 		verify(::source, "Source is Active") { paintera.baseView.sourceInfo().currentSourceProperty().value as? Source<out IntegerType<*>> }
 		verify(::sourceState, "Label Source is Active") { paintera.baseView.sourceInfo().getState(source) as? ConnectomicsLabelState<*, *> }
-		verify(::viewer, "Active Viewer Detected") { paintera.activeViewer.value }
+		verify(::viewer, "Viewer Detected") { paintera.baseView.lastFocusHolder.value?.viewer() }
 		verify(::translationController, "Active Viewer Detected") { NavigationTool.translationController }
 
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }

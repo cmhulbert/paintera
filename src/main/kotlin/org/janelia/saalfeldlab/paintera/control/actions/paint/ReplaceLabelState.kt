@@ -86,8 +86,10 @@ class ReplaceLabelState<T>() : ActionState, ReplaceLabelUIState where T : Intege
 
 	override fun <E : Event> Action<E>.verifyState() {
 		verify(::sourceState, "Label Source is Active") { paintera.currentSource as? ConnectomicsLabelState<*, *> }
-		verify(::paintContext, "Paint Label Mode has StatePaintContext") { PaintLabelMode.statePaintContext as StatePaintContext<T, *> }
-
+		verify(::paintContext, "Paint Label Mode has StatePaintContext") {
+			val paintLabelModeActive = paintera.currentMode as? PaintLabelMode
+			paintLabelModeActive?.statePaintContext as? StatePaintContext<T, *>
+		}
 		verify("Paint Label Mode is Active") { paintera.currentMode is PaintLabelMode }
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
 		verify("Mask not in use") { !paintContext.dataSource.isMaskInUseBinding().get() }

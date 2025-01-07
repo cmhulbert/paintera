@@ -6,6 +6,7 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import net.imglib2.realtransform.AffineTransform3D
+import org.janelia.saalfeldlab.bdv.fx.viewer.ViewerPanelFX
 import org.janelia.saalfeldlab.fx.actions.Action
 import org.janelia.saalfeldlab.fx.extensions.LazyForeignValue
 import org.janelia.saalfeldlab.paintera.control.actions.ActionState
@@ -23,7 +24,9 @@ import kotlin.math.floor
 class SmoothLabelState : ActionState, SmoothLabelUIState {
 	internal lateinit var labelSource: ConnectomicsLabelState<*, *>
 	internal lateinit var paintContext: StatePaintContext<*, *>
-	internal var mipMapLevel : Int = 0
+	internal lateinit var viewer: ViewerPanelFX
+	internal val mipMapLevel
+		get() = viewer.state.bestMipMapLevel
 
 	val levelResolution by LazyForeignValue(::mipMapLevel) lazy@{
 
@@ -72,10 +75,12 @@ class SmoothLabelState : ActionState, SmoothLabelUIState {
 
 	override fun <E : Event> Action<E>.verifyState() {
 		verify(::labelSource, "Label Source is Active") { paintera.currentSource as? ConnectomicsLabelState<*, *> }
-		verify(::paintContext, "Paint Label Mode has StatePaintContext") { PaintLabelMode.statePaintContext }
-		verify(::mipMapLevel, "Viewer is Focused") { paintera.activeViewer.get()?.state?.bestMipMapLevel }
+		verify(::paintContext, "Get paintContext from active PaintLabelMode") {
+			val paintLabelModeIsActive = paintera.currentMode as? PaintLabelMode
+			paintLabelModeIsActive?.statePaintContext
+		}
+		verify(::viewer, "Viewer Detected") { paintera.baseView.lastFocusHolder.value?.viewer() }
 
-		verify("Paint Label Mode is Active") { paintera.currentMode is PaintLabelMode }
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
 		verify("Mask is in Use") { !paintContext.dataSource.isMaskInUseBinding().get() }
 	}
@@ -83,6 +88,6 @@ class SmoothLabelState : ActionState, SmoothLabelUIState {
 	override fun copyVerified() = SmoothLabelState().also {
 		it.labelSource = this@SmoothLabelState.labelSource
 		it.paintContext = this@SmoothLabelState.paintContext
-		it.mipMapLevel = this@SmoothLabelState.mipMapLevel
+		it.viewer = this@SmoothLabelState.viewer
 	}
 }

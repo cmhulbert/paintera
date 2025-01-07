@@ -28,7 +28,7 @@ internal class GoToCoordinateState : ActionState, GoToCoordinateUIState {
 	override fun <E : Event> Action<E>.verifyState() {
 		verify(::source, "Source is Active") { paintera.baseView.sourceInfo().currentSourceProperty().value }
 		verify(::sourceState, "Source State is Active") { paintera.baseView.sourceInfo().getState(source) }
-		verify(::viewer, "Active Viewer Detected") { paintera.activeViewer.value }
+		verify(::viewer, "Viewer Detected") { paintera.baseView.lastFocusHolder.value?.viewer() }
 		verify(::translationController, "Active Viewer Detected") { NavigationTool.translationController }
 
 		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
