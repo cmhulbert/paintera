@@ -27,6 +27,7 @@ import net.imglib2.type.label.Label
 import net.imglib2.type.label.LabelMultisetType
 import net.imglib2.type.logic.BoolType
 import net.imglib2.type.numeric.ARGBType
+import net.imglib2.type.numeric.ARGBType.alpha
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.RealType
 import org.apache.commons.lang.builder.HashCodeBuilder
@@ -561,7 +562,10 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
         const val CONVERTER                       = "converter"
         const val CONVERTER_SEED                  = "seed"
 		const val CONVERTER_USER_SPECIFIED_COLORS = "userSpecifiedColors"
-		const val BACKGROUND_ID_VISIBLE          = "backgroundIdVisible"
+		const val CONVERTER_ALPHA                 = "alpha"
+		const val CONVERTER_ACTIVE_FRAGMENT_ALPHA = "activeFragmentAlpha"
+		const val CONVERTER_ACTIVE_SEGMENT_ALPHA  = "activeSegmentAlpha"
+		const val BACKGROUND_ID_VISIBLE           = "backgroundIdVisible"
         const val INTERPOLATION                   = "interpolation"
         const val IS_VISIBLE                      = "isVisible"
         const val RESOLUTION                      = "resolution"
@@ -587,6 +591,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 				JsonObject().let { m ->
 					state.converter.apply {
 						m.addProperty(CONVERTER_SEED, seedProperty().get())
+						m.addProperty(CONVERTER_ALPHA, alphaProperty().get())
+						m.addProperty(CONVERTER_ACTIVE_FRAGMENT_ALPHA, activeFragmentAlphaProperty().get())
+						m.addProperty(CONVERTER_ACTIVE_SEGMENT_ALPHA, activeSegmentAlphaProperty().get())
 						if (stream.overrideAlpha.get(Label.BACKGROUND) != stream.overrideAlpha.noEntryValue) m.addProperty(BACKGROUND_ID_VISIBLE, false)
 
 						userSpecifiedColors().asJsonObject()?.let { m.add(CONVERTER_USER_SPECIFIED_COLORS, it) }
@@ -667,6 +674,9 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 								converter.apply {
 									get<JsonObject>(CONVERTER_USER_SPECIFIED_COLORS) { it.toColorMap().forEach { (id, c) -> state.converter.setColor(id, c) } }
 									get<Long>(CONVERTER_SEED) { seed -> state.converter.seedProperty().set(seed) }
+									get<Int>(CONVERTER_ALPHA) { alpha -> state.converter.alphaProperty().value = alpha }
+									get<Int>(CONVERTER_ACTIVE_FRAGMENT_ALPHA) { alpha -> state.converter.activeFragmentAlphaProperty().value = alpha }
+									get<Int>(CONVERTER_ACTIVE_SEGMENT_ALPHA) { alpha -> state.converter.activeSegmentAlphaProperty().value = alpha }
 									if (get<Boolean>(BACKGROUND_ID_VISIBLE) == false) stream.overrideAlpha.put(Label.BACKGROUND, 0)
 								}
 							}

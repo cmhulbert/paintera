@@ -11,6 +11,10 @@ import org.janelia.saalfeldlab.fx.extensions.nonnull
 
 open class AnimatedProgressBar : ProgressBar() {
 
+	companion object {
+		private const val END_CUE = "END"
+	}
+
 	private val timeline = Timeline()
 
 	var reversible = false
@@ -28,11 +32,13 @@ open class AnimatedProgressBar : ProgressBar() {
 
 
 	protected open fun updateTimeline(newTarget: Double) {
+
 		val thisPortion = lastUpdateTime?.let { System.currentTimeMillis() - it }?.div(2.0) ?: 0.0
 		runningAverageBetweenUpdates = runningAverageBetweenUpdates / 2.0 + thisPortion
 		lastUpdateTime = System.currentTimeMillis()
 
 		timeline.stop()
+		timeline.jumpTo(END_CUE)
 		val progressProperty = progressProperty()
 		if (newTarget == 0.0) {
 			progressProperty.value = 0.0
@@ -50,7 +56,15 @@ open class AnimatedProgressBar : ProgressBar() {
 			KeyFrame(Duration.ZERO, KeyValue(progressProperty, progressProperty.value)),
 			KeyFrame(resultDuration, KeyValue(progressProperty, newTarget))
 		)
+		timeline.cuePoints[END_CUE] = resultDuration
 		timeline.play()
+	}
+
+	fun finish() {
+		timeline.stop()
+		progressProperty().unbind()
+		progressProperty().value = 1.0
+		timeline.jumpTo(END_CUE)
 	}
 
 	fun stop() = timeline.stop()

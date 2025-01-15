@@ -11,8 +11,6 @@ import javafx.application.Preloader.StateChangeNotification.Type.*
 import javafx.stage.Stage
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread.Companion.invokeAndWait
 import java.util.stream.Stream
-import kotlin.reflect.KFunction
-import kotlin.reflect.full.findAnnotation
 
 object ApplicationTestUtils {
 

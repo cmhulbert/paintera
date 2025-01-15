@@ -240,11 +240,11 @@ class HighlightingStreamConverterConfigNode(private val converter: HighlightingS
 				"\t(2) selected fragments\n" +
 				"\t(3) unselected fragments in selected segments"
 
-		private fun toIntegerBased(opacity: Double): Int {
+		public fun toIntegerBased(opacity: Double): Int {
 			return (255 * opacity + 0.5).toInt()
 		}
 
-		private fun toDoubleBased(opacity: Int): Double {
+		public fun toDoubleBased(opacity: Int): Double {
 			return opacity / 255.0
 		}
 	}
