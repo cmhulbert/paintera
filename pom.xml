@@ -82,6 +82,8 @@
 		<n5-zarr.version>1.4.0</n5-zarr.version>
 		<n5.version>3.3.1</n5.version>
 
+		<imglib2-algorithm.version>0.18.0</imglib2-algorithm.version>
+
 		<maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
 		<enforcer.skip>true</enforcer.skip>
 	</properties>
