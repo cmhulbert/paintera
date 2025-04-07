@@ -4,26 +4,39 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.LongProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleLongProperty
-import javafx.event.EventHandler
+import javafx.event.ActionEvent
 import javafx.geometry.Insets
 import javafx.geometry.Pos
-import javafx.scene.Scene
 import javafx.scene.control.*
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
-import javafx.stage.Stage
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
+import org.janelia.saalfeldlab.paintera.Paintera
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
 import org.janelia.saalfeldlab.paintera.ui.PositiveLongTextFormatter
 import org.janelia.saalfeldlab.paintera.ui.hGrow
 import org.janelia.saalfeldlab.paintera.ui.hvGrow
 
 
-interface GoToLabelUIState {
-	val labelProperty: LongProperty
-	val activateLabelProperty: BooleanProperty
-}
+class GoToLabelUI(val model: Model) : VBox(5.0) {
 
-class GoToLabelUI(val state: GoToLabelUIState) : VBox(5.0) {
+	interface Model {
+		val labelProperty: LongProperty
+		val activateLabelProperty: BooleanProperty
+
+		fun getDialog(title: String = "Go To Label"): Alert {
+			return PainteraAlerts.confirmation("Go", "Cancel", true, null).apply {
+				this.title = title
+				headerText = "Go to Label"
+				dialogPane.content = GoToLabelUI(this@Model)
+			}
+		}
+	}
+
+	class Default : Model {
+		override val labelProperty = SimpleLongProperty()
+		override val activateLabelProperty = SimpleBooleanProperty(true)
+	}
 
 	init {
 		hvGrow()
@@ -34,8 +47,8 @@ class GoToLabelUI(val state: GoToLabelUIState) : VBox(5.0) {
 			children += Label("Label ID:")
 			children += TextField().hGrow {
 				textFormatter = PositiveLongTextFormatter().apply {
-					value = state.labelProperty.value
-					state.labelProperty.bind(valueProperty())
+					value = model.labelProperty.value
+					model.labelProperty.bind(valueProperty())
 				}
 			}
 		}
@@ -43,8 +56,7 @@ class GoToLabelUI(val state: GoToLabelUIState) : VBox(5.0) {
 			alignment = Pos.BOTTOM_RIGHT
 			children += Label("Activate Label? ")
 			children += CheckBox().apply {
-				selectedProperty().bindBidirectional(state.activateLabelProperty)
-				isSelected = true
+				selectedProperty().bindBidirectional(model.activateLabelProperty)
 			}
 		}
 
@@ -55,26 +67,19 @@ class GoToLabelUI(val state: GoToLabelUIState) : VBox(5.0) {
 fun main() {
 	InvokeOnJavaFXApplicationThread {
 
-		val state = object : GoToLabelUIState {
-			override val labelProperty = SimpleLongProperty(1234L)
-			override val activateLabelProperty = SimpleBooleanProperty(true)
+		val model = GoToLabelUI.Default().apply {
+			labelProperty.set(1234)
 		}
 
-		val root = VBox()
-		root.apply {
-			children += Button("Reload").apply {
-				onAction = EventHandler {
-					root.children.removeIf { it is GoToLabelUI }
-					root.children.add(GoToLabelUI(state))
-				}
+		val dialog = model.getDialog().apply {
+			val reloadButton = ButtonType("Reload", ButtonBar.ButtonData.LEFT)
+			dialogPane.buttonTypes += reloadButton
+			(dialogPane.lookupButton(reloadButton) as? Button)?.addEventFilter(ActionEvent.ACTION) {
+				dialogPane.content = GoToLabelUI(model)
+				it.consume()
 			}
-			children += GoToLabelUI(state)
 		}
-
-		val scene = Scene(root)
-		val stage = Stage()
-		stage.scene = scene
-		stage.show()
+		dialog.show()
 	}
 }
 

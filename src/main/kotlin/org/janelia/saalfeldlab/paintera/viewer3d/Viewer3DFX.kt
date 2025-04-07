@@ -19,8 +19,10 @@ import javafx.scene.transform.Transform
 import javafx.scene.transform.Translate
 import javafx.stage.FileChooser
 import javafx.util.Duration
+import kotlinx.coroutines.runBlocking
 import net.imglib2.Interval
 import net.imglib2.realtransform.AffineTransform3D
+import org.janelia.saalfeldlab.fx.extensions.invoke
 import org.janelia.saalfeldlab.util.SimilarityTransformInterpolator
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.paintera.ui.menus.PainteraMenuItems
@@ -116,14 +118,17 @@ class Viewer3DFX(width: Double, height: Double) : Pane() {
 		fileChooser.title = "Save 3d snapshot "
 		val fileProperty = SimpleObjectProperty<File?>()
 
-		try {
-			InvokeOnJavaFXApplicationThread.invokeAndWait {
+		runBlocking {
+			InvokeOnJavaFXApplicationThread {
 				val showSaveDialog = fileChooser.showSaveDialog(root.sceneProperty().get().window)
 				fileProperty.set(showSaveDialog)
-			}
-		} catch (e: InterruptedException) {
-			e.printStackTrace()
+			}.apply {
+				invokeOnCompletion { cause ->
+					cause?.printStackTrace()
+				}
+			}.join()
 		}
+
 		fileProperty.get()?.let { file ->
 			if (!file.name.endsWith(".png")) {
 				val png = File(file.absolutePath + ".png")

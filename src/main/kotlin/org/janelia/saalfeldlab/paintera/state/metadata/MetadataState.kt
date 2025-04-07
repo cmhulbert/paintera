@@ -32,7 +32,6 @@ import org.janelia.saalfeldlab.paintera.state.metadata.MetadataUtils.Companion.t
 import org.janelia.saalfeldlab.util.n5.*
 import org.janelia.saalfeldlab.util.n5.metadata.N5PainteraDataMultiScaleGroup
 import org.janelia.saalfeldlab.util.n5.metadata.N5PainteraLabelMultiScaleGroup
-import java.util.stream.Stream
 import kotlin.streams.asSequence
 
 interface MetadataState {
@@ -387,34 +386,24 @@ class MetadataUtils {
 		}
 
 		@JvmStatic
-		fun createMetadataState(n5containerAndDataset: String): MetadataState? {
-
-			val reader = with(Paintera.n5Factory) {
-				openWriterOrNull(n5containerAndDataset) ?: openReaderOrNull(n5containerAndDataset) ?: return null
-			}
-
-			val n5ContainerState = N5ContainerState(reader)
-			return discoverAndParseRecursive(reader, n5containerAndDataset).run {
-				if (isDataset && metadataIsValid(metadata))
-					createMetadataState(n5ContainerState, metadata)
-				else null
-			}
-		}
-
-		@JvmStatic
 		fun createMetadataState(n5container: String, dataset: String = ""): MetadataState? {
 			val n5 = Paintera.n5Factory.openWriterOrReaderOrNull(n5container) ?: return null
 			return createMetadataState(n5, dataset)
 		}
 
 		@JvmStatic
-		fun createMetadataState(reader: N5Reader, dataset: String): MetadataState? {
-			return createMetadataState(N5ContainerState(reader), dataset)!!
+		fun createMetadataState(reader: N5Reader, dataset: String = ""): MetadataState? {
+			val n5ContainerState = N5ContainerState(reader)
+			return createMetadataState(n5ContainerState, dataset)
 		}
 
 		@JvmStatic
-		fun createMetadataState(n5ContainerState: N5ContainerState, dataset: String): MetadataState? {
-			val metadataRoot = discoverAndParseRecursive(n5ContainerState.reader)
+		@JvmOverloads
+		fun createMetadataState(
+			n5ContainerState: N5ContainerState,
+			dataset: String = "",
+			metadataRoot: N5TreeNode = discoverAndParseRecursive(n5ContainerState.reader),
+		): MetadataState? {
 
 			val normalizedPath = N5URI.normalizeGroupPath(dataset)
 			return N5TreeNode.flattenN5Tree(metadataRoot)
@@ -422,7 +411,9 @@ class MetadataUtils {
 				.filter { node: N5TreeNode -> (normalizedPath == N5URI.normalizeGroupPath(node.path) || normalizedPath == node.nodeName) && metadataIsValid(node.metadata) }
 				.map { obj: N5TreeNode -> obj.metadata }
 				.map { md: N5Metadata -> createMetadataState(n5ContainerState, md) }
-				.firstOrNull()
+				.firstOrNull()?.also {
+					LOG.debug { "Metadata State created for $n5ContainerState:$dataset ($it)" }
+				}
 		}
 
 		fun transformFromResolutionOffset(resolution: DoubleArray, offset: DoubleArray): AffineTransform3D {

@@ -136,7 +136,6 @@ abstract class PaintTool(
 						ConnectomicsLabelStatePaintContext(source) as StatePaintContext<D, T>
 					}
 				}
-
 				else -> null
 			}
 		}

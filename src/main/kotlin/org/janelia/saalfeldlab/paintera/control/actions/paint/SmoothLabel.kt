@@ -1,11 +1,9 @@
 package org.janelia.saalfeldlab.paintera.control.actions.paint
 
 import bdv.tools.boundingbox.IntervalCorners
-import com.google.type.TimeOfDayOrBuilder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
-import javafx.beans.property.SimpleLongProperty
 import javafx.util.Subscription
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
@@ -21,17 +19,16 @@ import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.integer.UnsignedLongType
 import net.imglib2.type.numeric.real.DoubleType
 import net.imglib2.util.Intervals
+import org.janelia.saalfeldlab.fx.actions.onAction
 import org.janelia.saalfeldlab.fx.actions.verifyPermission
 import org.janelia.saalfeldlab.fx.extensions.component1
 import org.janelia.saalfeldlab.fx.extensions.component2
 import org.janelia.saalfeldlab.fx.extensions.nonnull
-import org.janelia.saalfeldlab.fx.extensions.nonnullVal
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey
 import org.janelia.saalfeldlab.net.imglib2.view.BundleView
 import org.janelia.saalfeldlab.paintera.control.actions.MenuAction
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
-import org.janelia.saalfeldlab.paintera.control.actions.onAction
 import org.janelia.saalfeldlab.paintera.data.DataSource
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
@@ -60,12 +57,12 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 	init {
 		verifyPermission(PaintActionType.Smooth, PaintActionType.Erase, PaintActionType.Background, PaintActionType.Fill)
-		onAction<SmoothLabelState> {
+		onAction<SmoothLabelState<*, *>> {
 			finalizeSmoothing = false
 			/* Set lateinit values */
 			progress = 0.0
 			startSmoothTask()
-			showSmoothDialog(name?.replace("_", "") ?: "Smooth Label")
+			getDialog(name?.replace("_", "") ?: "Smooth Label").show()
 		}
 	}
 
@@ -81,7 +78,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 	private var smoothing by smoothingProperty.nonnull()
 
 	@OptIn(ExperimentalCoroutinesApi::class)
-	private fun SmoothLabelState.startSmoothTask() {
+	private fun SmoothLabelState<*, *>.startSmoothTask() {
 		val prevScales = viewer.screenScales
 		val smoothTriggerListener = { reason: String ->
 			{ _: Any? ->
@@ -98,9 +95,11 @@ object SmoothLabel : MenuAction("_Smooth...") {
 			smoothTriggerSubscription.unsubscribe()
 			smoothTriggerSubscription = kernelSizeChangeSubscription.and(replacementLabelChangeSubscription)
 			paintera.baseView.orthogonalViews().setScreenScales(doubleArrayOf(prevScales[0]))
-			smoothing = true
-			initializeSmoothLabel()
-			smoothing = false
+			labelSelectionProperty.subscribe { selection ->
+				smoothing = true
+				initializeSmoothLabel()
+				smoothing = false
+			}
 			var intervals: List<Interval>? = emptyList()
 			while (coroutineContext.isActive) {
 				if (resmooth || finalizeSmoothing) {
@@ -149,37 +148,37 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		}
 	}
 
-	private fun SmoothLabelState.requestRepaintOverIntervals(intervals: List<Interval>? = null) {
+	private fun SmoothLabelState<*, *>.requestRepaintOverIntervals(intervals: List<Interval>? = null) {
 		if (intervals.isNullOrEmpty()) {
 			paintera.baseView.orthogonalViews().requestRepaint()
 			return
 		}
 		val smoothedInterval = intervals.reduce(Intervals::union)
-		val globalSmoothedInterval = dataSource.getSourceTransformForMask(MaskInfo(0, 0)).estimateBounds(smoothedInterval)
+		val time = 0
+		val globalSmoothedInterval = dataSource.getSourceTransformForMask(MaskInfo(time, scaleLevel)).estimateBounds(smoothedInterval)
 		paintera.baseView.orthogonalViews().requestRepaint(globalSmoothedInterval)
 	}
 
-	private fun SmoothLabelState.cancelActiveSmoothing(reason: String) {
+	private fun SmoothLabelState<*, *>.cancelActiveSmoothing(reason: String) {
 		scopeJob?.cancel(CancellationException(reason))
 		progress = 0.0
 	}
 
-	private fun SmoothLabelState.initializeSmoothLabel() {
+	private fun SmoothLabelState<*, *>.initializeSmoothLabel() {
 
 		val maskedSource = dataSource as MaskedSource<*, *>
-		val labels = selectedIds.activeIds
+		val labels = labelsToSmooth
 
 
 		/* Read from the labelBlockLookup (if already persisted) */
-		val scale0 = 0
-
-		val blocksWithLabel = maskedSource.blocksForLabels(scale0, labels.toArray())
+		val blocksWithLabel = maskedSource.blocksForLabels(scaleLevel, labels)
 		if (blocksWithLabel.isEmpty()) return
 
-		val sourceImg = maskedSource.getReadOnlyDataBackground(0, scale0)
-		val canvasImg = maskedSource.getReadOnlyDataCanvas(0, scale0)
+		val timePoint = 0
+		val sourceImg = maskedSource.getReadOnlyDataBackground(timePoint, scaleLevel)
+		val canvasImg = maskedSource.getReadOnlyDataCanvas(timePoint, scaleLevel)
 
-		val cellGrid = maskedSource.getCellGrid(0, scale0)
+		val cellGrid = maskedSource.getCellGrid(timePoint, scaleLevel)
 
 		val labelMask = DiskCachedCellImgFactory(DoubleType(0.0)).create(sourceImg) { labelMaskChunk ->
 			val sourceChunk = sourceImg.interval(labelMaskChunk).cursor()
@@ -197,7 +196,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		}
 
 		val voronoiBackgroundLabel = IdService.randomTemporaryId()
-		val sqWeights = DataSource.getScale(maskedSource, 0, 0).also {
+		val sqWeights = DataSource.getScale(maskedSource, timePoint, scaleLevel).also {
 			for ((index, weight) in it.withIndex()) {
 				it[index] = weight * weight
 			}
@@ -275,16 +274,17 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 
 	@JvmStatic
-	fun MaskedSource<*, *>.blocksForLabels(scale0: Int, labels: LongArray): List<Interval> {
+	fun MaskedSource<*, *>.blocksForLabels(scaleLevel: Int, labels: LongArray): List<Interval> {
 		val sourceState = paintera.baseView.sourceInfo().getState(this) as ConnectomicsLabelState
-		val blocksFromSource = labels.flatMap { sourceState.labelBlockLookup.read(LabelBlockLookupKey(scale0, it)).toList() }
+		val blocksFromSource = labels.flatMap { sourceState.labelBlockLookup.read(LabelBlockLookupKey(scaleLevel, it)).toList() }
 
 		/* Read from canvas access (if in canvas) */
-		val cellGrid = getCellGrid(0, scale0)
+		val timePoint = 0
+		val cellGrid = getCellGrid(timePoint, scaleLevel)
 		val cellIntervals = cellGrid.cellIntervals().randomAccess()
 		val cellPos = LongArray(cellGrid.numDimensions())
 		val blocksFromCanvas = labels.flatMap {
-			getModifiedBlocks(scale0, it).toArray().map { block ->
+			getModifiedBlocks(scaleLevel, it).toArray().map { block ->
 				cellGrid.getCellGridPositionFlat(block, cellPos)
 				FinalInterval(cellIntervals.setPositionAndGet(*cellPos))
 			}
@@ -293,7 +293,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		return blocksFromSource + blocksFromCanvas
 	}
 
-	private fun SmoothLabelState.pruneBlock(blocksWithLabel: List<Interval>): List<RealInterval> {
+	private fun SmoothLabelState<*, *>.pruneBlock(blocksWithLabel: List<Interval>): List<RealInterval> {
 		val viewsInSourceSpace = viewerIntervalsInSourceSpace()
 
 		/* remove any blocks that don't intersect with them*/
@@ -303,7 +303,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 	}
 
-	private fun SmoothLabelState.viewerIntervalsInSourceSpace(): Array<FinalRealInterval> {
+	private fun SmoothLabelState<*, *>.viewerIntervalsInSourceSpace(): Array<FinalRealInterval> {
 		/* get viewer screen intervals for each orthognal view in source space*/
 		val viewerAndTransforms = paintera.baseView.orthogonalViews().viewerAndTransforms()
 		val viewsInSourceSpace = viewerAndTransforms
@@ -314,14 +314,15 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				val height = it.viewer().height
 				val screenInterval = FinalInterval(width.toLong(), height.toLong(), 1L)
 				val sourceToGlobal = AffineTransform3D()
-				labelSource.getDataSource().getSourceTransform(0, 0, sourceToGlobal)
+				val time = 0
+				sourceState.getDataSource().getSourceTransform(time, scaleLevel, sourceToGlobal)
 				val viewerToSource = sourceToGlobal.inverse().copy().concatenate(globalToViewerTransform.inverse())
 				viewerToSource.estimateBounds(screenInterval)
 			}.toTypedArray()
 		return viewsInSourceSpace
 	}
 
-	private fun SmoothLabelState.smoothMask(labelMask: CachedCellImg<DoubleType, *>, nearestLabels: RandomAccessibleInterval<UnsignedLongType>, blocksWithLabel: List<Interval>, preview: Boolean = false): List<RealInterval> {
+	private fun SmoothLabelState<*, *>.smoothMask(labelMask: CachedCellImg<DoubleType, *>, nearestLabels: RandomAccessibleInterval<UnsignedLongType>, blocksWithLabel: List<Interval>, preview: Boolean = false): List<RealInterval> {
 
 		/* Just to show that smoothing has started */
 		progress = 0.0 // The listener only resets to zero if going backward, so do this first
@@ -329,8 +330,7 @@ object SmoothLabel : MenuAction("_Smooth...") {
 
 		val intervalsToSmoothOver = if (preview) pruneBlock(blocksWithLabel) else blocksWithLabel
 
-		val scale0 = 0
-		val levelResolution = getLevelResolution(scale0)
+		val levelResolution = getLevelResolution(scaleLevel)
 		val kernelSize = kernelSizeProperty.get()
 		val sigma = DoubleArray(3) { kernelSize / levelResolution[it] }
 
@@ -338,7 +338,8 @@ object SmoothLabel : MenuAction("_Smooth...") {
 		val smoothedImg = DiskCachedCellImgFactory(DoubleType(0.0)).create(labelMask)
 
 		dataSource.resetMasks()
-		setNewSourceMask(dataSource, MaskInfo(0, scale0)) { it >= 0 }
+		val time = 0
+		setNewSourceMask(dataSource, MaskInfo(time, scaleLevel)) { it >= 0 }
 		val mask = dataSource.currentMask
 
 		val smoothOverInterval: suspend CoroutineScope.(RealInterval) -> Flow<Int> = { slice ->
@@ -357,12 +358,12 @@ object SmoothLabel : MenuAction("_Smooth...") {
 				val nearestLabelsSlice = nearestLabels.extendValue(Imglib2Label.INVALID).interval(slice).cursor()
 
 				ensureActive()
-				val useReplacementLabel = activateReplacementLabelProperty.get()
+				val infillStrategy = infillStrategyProperty.get()
 				val replaceLabel = replacementLabelProperty.get()
-				val sendAfter = slice.smallestContainingInterval.numElements() / 5
+				val emitUpdateAfter = slice.smallestContainingInterval.numElements() / 5
 				var count = 0L
 				while (smoothed.hasNext()) {
-					(++count).takeIf { it % sendAfter == 0L }?.let { emit(0) }
+					(++count).takeIf { it % emitUpdateAfter == 0L }?.let { emit(0) }
 
 					//This is the slow one, check cancellation immediately before and after
 					val smoothness: Double
@@ -379,10 +380,11 @@ object SmoothLabel : MenuAction("_Smooth...") {
 					val maskPos = maskBundle.next()
 					val maskVal = maskPos.get()
 					if (smoothness < 0.5 && labelVal.get() == 1.0) {
-						if (useReplacementLabel) {
-							maskVal.setInteger(replaceLabel)
-						} else
-							maskVal.set(nearest.get())
+						when (infillStrategy) {
+							InfillStrategy.Replace -> replaceLabel
+							InfillStrategy.Background -> Imglib2Label.BACKGROUND
+							InfillStrategy.NearestLabel -> nearest.get()
+						}
 					} else if (maskVal.get() == replaceLabel) {
 						maskVal.setInteger(Imglib2Label.INVALID)
 					}

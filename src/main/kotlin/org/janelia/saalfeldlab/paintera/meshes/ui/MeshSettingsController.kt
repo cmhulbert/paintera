@@ -406,7 +406,6 @@ fun <T> MeshManager<T>.exportMeshWithProgressPopup(result : MeshExportResult<T>)
 			if (progressUpdater.cancelled)
 				meshExporter.cancel()
 		}
-
 	}
 }
 

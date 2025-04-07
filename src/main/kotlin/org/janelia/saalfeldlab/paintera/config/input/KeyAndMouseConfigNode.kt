@@ -28,6 +28,7 @@ import org.janelia.saalfeldlab.paintera.control.modes.NavigationTool
 import org.janelia.saalfeldlab.paintera.state.SourceInfo
 import org.janelia.saalfeldlab.paintera.state.SourceState
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initAppDialog
 import java.util.Locale
 
 class KeyAndMouseConfigNode(
@@ -122,7 +123,7 @@ class KeyAndMouseConfigNode(
 			val sortedNames = sortedStates.map { it.nameProperty().value }
 
 			val helpDialog = PainteraAlerts.alert(Alert.AlertType.INFORMATION, true).apply {
-				PainteraAlerts.initAppDialog(this, Modality.NONE)
+				initAppDialog(null, Modality.NONE)
 				headerText = "Bindings for sources of type ${sourceClass.simpleName}"
 				dialogPane.content = TableView(FXCollections.observableArrayList(sortedNames.mapIndexed { index, s -> Pair(index, s) })).apply {
 					columns.add(indexColumn)
@@ -161,7 +162,7 @@ class KeyAndMouseConfigNode(
 			if (description.isNotEmpty() && description.trim().uppercase(Locale.getDefault()) != "TODO") {
 
 				val helpDialog = PainteraAlerts.alert(Alert.AlertType.INFORMATION, true).apply {
-					PainteraAlerts.initAppDialog(this, Modality.NONE)
+					initAppDialog(null, Modality.NONE)
 					headerText = title
 					contentText = description
 				}

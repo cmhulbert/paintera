@@ -36,6 +36,7 @@ import org.janelia.saalfeldlab.util.interval
 import org.janelia.saalfeldlab.util.n5.N5Helpers.MAX_ID_KEY
 import org.janelia.saalfeldlab.util.n5.N5Helpers.forEachBlock
 import org.janelia.saalfeldlab.util.n5.N5Helpers.forEachBlockExists
+import org.jdom2.filter.Filters.content
 import kotlin.coroutines.cancellation.CancellationException
 
 class ExportSourceState {
@@ -154,7 +155,7 @@ class ExportSourceState {
 				val cellRai = exportRAI.interval(cellInterval)
 				N5Utils.saveBlock(cellRai, writer, scaleLevelDataset, exportAttributes)
 			}
-			Paintera.n5Factory.clearKey(exportLocation)
+			Paintera.n5Factory.remove(exportLocation)
 		}
 		progressUpdater?.apply {
 			exportJob.invokeOnCompletion {
@@ -172,16 +173,7 @@ class ExportSourceState {
 					(t as? Exception)?.let {
 						InvokeOnJavaFXApplicationThread {
 							/* hack until the dialog is improved in saalfx*/
-							val content = ExceptionNode(it).pane.apply {
-								children.firstNotNullOfOrNull { it as? TitledPane }?.apply {
-									VBox.setVgrow(this, Priority.ALWAYS)
-									isExpanded = true
-								}
-							}
-							PainteraAlerts.information("_Ok", true).apply {
-								title = "Caught Exception"
-								dialogPane.content = content
-							}.showAndWait()
+							ExceptionNode.exceptionDialog(it).showAndWait()
 						}
 					}
 				}

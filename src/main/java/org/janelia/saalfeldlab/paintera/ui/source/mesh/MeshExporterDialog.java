@@ -22,7 +22,6 @@ import org.janelia.saalfeldlab.paintera.meshes.MeshExporterBinary;
 import org.janelia.saalfeldlab.paintera.meshes.MeshExporterObj;
 import org.janelia.saalfeldlab.paintera.meshes.MeshInfo;
 import org.janelia.saalfeldlab.paintera.meshes.MeshSettings;
-import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -30,6 +29,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initAppDialog;
 
 public class MeshExporterDialog<K> extends Dialog<MeshExportResult<K>> {
 
@@ -58,7 +59,7 @@ public class MeshExporterDialog<K> extends Dialog<MeshExportResult<K>> {
 
 	public MeshExporterDialog(MeshInfo<K> meshInfo) {
 		super();
-		PainteraAlerts.initAppDialog(this);
+		initAppDialog(this);
 		this.filePathField = new TextField();
 		if (previousFilePath != null)
 			filePathField.setText(previousFilePath);

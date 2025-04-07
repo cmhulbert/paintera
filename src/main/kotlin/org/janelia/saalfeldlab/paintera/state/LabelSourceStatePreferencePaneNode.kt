@@ -486,7 +486,7 @@ class LabelSourceStatePreferencePaneNode(
 
 		}
 
-		private fun askForgetCanvasAlert() = PainteraAlerts.confirmation("_Yes", "_No", true).apply {
+		private fun askForgetCanvasAlert() = PainteraAlerts.confirmation("_Yes", "_No", true, null).apply {
 			headerText = "Clear Canvas"
 			dialogPane.content = TextArea("Clearing canvas will remove all painted data that have not been committed yet. Proceed?").apply {
 				isEditable = false

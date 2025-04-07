@@ -16,6 +16,7 @@ import javafx.scene.input.MouseEvent
 import javafx.stage.Modality
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
+import kotlinx.coroutines.runBlocking
 import org.janelia.saalfeldlab.fx.SaalFxStyle
 import org.janelia.saalfeldlab.fx.extensions.nonnull
 import org.janelia.saalfeldlab.fx.ui.Exceptions
@@ -28,7 +29,7 @@ import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
 import org.janelia.saalfeldlab.paintera.util.logging.LogUtils
 import org.janelia.saalfeldlab.util.PainteraCache
-import org.janelia.saalfeldlab.util.n5.universe.N5FactoryWithCache
+import org.janelia.saalfeldlab.util.n5.universe.PainteraN5Factory
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File
@@ -108,22 +109,24 @@ class Paintera : Application() {
 		} ?: notifyPreloader(SplashScreenUpdateNotification("Launching Paintera...", true))
 		paintable = true
 		runPaintable()
-		InvokeOnJavaFXApplicationThread.invokeAndWait {
-			paintera.properties.loggingConfig.apply {
-				painteraArgs.logLevel?.let { rootLoggerLevel = it }
-				painteraArgs.logLevelsByName?.forEach { (name, level) -> name?.let { setLogLevelFor(it, level) } }
-			}
-			painteraArgs.addToViewer(paintera.baseView) { paintera.projectDirectory.actualDirectory?.absolutePath }
+		runBlocking {
+			InvokeOnJavaFXApplicationThread {
+				paintera.properties.loggingConfig.apply {
+					painteraArgs.logLevel?.let { rootLoggerLevel = it }
+					painteraArgs.logLevelsByName?.forEach { (name, level) -> name?.let { setLogLevelFor(it, level) } }
+				}
+				painteraArgs.addToViewer(paintera.baseView) { paintera.projectDirectory.actualDirectory?.absolutePath }
 
-			if (painteraArgs.wereScreenScalesProvided())
-				paintera.properties.screenScalesConfig.screenScalesProperty().set(ScreenScalesConfig.ScreenScales(*painteraArgs.screenScales()))
+				if (painteraArgs.wereScreenScalesProvided())
+					paintera.properties.screenScalesConfig.screenScalesProperty().set(ScreenScalesConfig.ScreenScales(*painteraArgs.screenScales()))
 
-			// TODO figure out why this update is necessary?
-			paintera.properties.screenScalesConfig.screenScalesProperty().apply {
-				val scales = ScreenScalesConfig.ScreenScales(*get().scalesCopy.clone())
-				set(ScreenScalesConfig.ScreenScales(*scales.scalesCopy.map { it * 0.5 }.toDoubleArray()))
-				set(scales)
-			}
+				// TODO figure out why this update is necessary?
+				paintera.properties.screenScalesConfig.screenScalesProperty().apply {
+					val scales = ScreenScalesConfig.ScreenScales(*get().scalesCopy.clone())
+					set(ScreenScalesConfig.ScreenScales(*scales.scalesCopy.map { it * 0.5 }.toDoubleArray()))
+					set(scales)
+				}
+			}.join()
 		}
 		notifyPreloader(SplashScreenFinishPreloader())
 	}
@@ -223,7 +226,7 @@ class Paintera : Application() {
 		}
 		paintera.baseView.stop()
 		paintera.projectDirectory.close()
-		n5Factory.clearCache()
+		n5Factory.clear()
 
 		paintera.pane.scene.window.let { window ->
 			Platform.setImplicitExit(false)
@@ -245,7 +248,7 @@ class Paintera : Application() {
 		internal var debugMode = System.getenv("PAINTERA_DEBUG")?.equals("1") ?: false
 
 		@JvmStatic
-		val n5Factory = N5FactoryWithCache()
+		val n5Factory = PainteraN5Factory()
 
 		private val LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
 

@@ -16,13 +16,13 @@ import net.imglib2.type.numeric.integer.UnsignedLongType
 import net.imglib2.type.volatiles.VolatileUnsignedLongType
 import net.imglib2.util.Intervals
 import net.imglib2.view.IntervalView
+import org.janelia.saalfeldlab.fx.actions.onAction
 import org.janelia.saalfeldlab.fx.actions.verifyPermission
 import org.janelia.saalfeldlab.fx.extensions.createObservableBinding
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey
 import org.janelia.saalfeldlab.paintera.Paintera
 import org.janelia.saalfeldlab.paintera.control.actions.MenuAction
-import org.janelia.saalfeldlab.paintera.control.actions.onAction
 import org.janelia.saalfeldlab.paintera.control.actions.PaintActionType
 import org.janelia.saalfeldlab.paintera.control.actions.paint.ReplaceLabelState.Mode
 import org.janelia.saalfeldlab.paintera.data.mask.MaskInfo
@@ -31,7 +31,7 @@ import org.janelia.saalfeldlab.paintera.data.mask.SourceMask
 import org.janelia.saalfeldlab.paintera.data.n5.N5DataSource
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
-import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initAppDialog
 import org.janelia.saalfeldlab.util.convert
 import org.janelia.saalfeldlab.util.grids.LabelBlockLookupAllBlocks
 import org.janelia.saalfeldlab.util.interval
@@ -54,13 +54,13 @@ class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
 			Mode.All -> arrayOf(PaintActionType.Fill, PaintActionType.Erase, PaintActionType.Background)
 		}
 		verifyPermission(*permissions)
-		onAction<ReplaceLabelState> {
+		onAction<ReplaceLabelState<*, *>> {
 			initializeForMode(mode)
 			showDialog(it)
 		}
 	}
 
-	private fun <T : IntegerType<T>> ReplaceLabelState.generateReplaceLabelMask(newLabel: Long, vararg fragments: Long) = with(maskedSource) {
+	private fun <T : IntegerType<T>> ReplaceLabelState<*,*>.generateReplaceLabelMask(newLabel: Long, vararg fragments: Long) = with(maskedSource) {
 		val dataSource = getDataSource(0, 0)
 
 		val fragmentsSet = fragments.toHashSet()
@@ -70,7 +70,7 @@ class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
 		}.interval(dataSource)
 	}
 
-	private fun <T : IntegerType<T>> ReplaceLabelState.replaceLabels(newLabel: Long, vararg oldLabels: Long) = with(maskedSource) {
+	private fun <T : IntegerType<T>> ReplaceLabelState<*,*>.replaceLabels(newLabel: Long, vararg oldLabels: Long) = with(maskedSource) {
 		val blocks = blocksForLabels(0, *oldLabels)
 		val replacedLabelMask = generateReplaceLabelMask(newLabel, *oldLabels)
 
@@ -102,10 +102,10 @@ class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
 		sourceState.refreshMeshes()
 	}
 
-	private fun ReplaceLabelState.showDialog(event: Event?) {
+	private fun ReplaceLabelState<*, *>.showDialog(event: Event?) {
 		Dialog<Boolean>().apply {
 			isResizable = true
-			PainteraAlerts.initAppDialog(this)
+			this.initAppDialog()
 			Paintera.registerStylesheets(dialogPane)
 			dialogPane.buttonTypes += ButtonType.APPLY
 			dialogPane.buttonTypes += ButtonType.CANCEL
@@ -148,7 +148,7 @@ class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
 		}.show()
 	}
 
-	private fun ReplaceLabelState.requestRepaintOverIntervals(sourceIntervals: List<Interval>? = null) {
+	private fun ReplaceLabelState<*, *>.requestRepaintOverIntervals(sourceIntervals: List<Interval>? = null) {
 		val globalInterval = sourceIntervals
 			?.reduce(Intervals::union)
 			?.let { maskedSource.getSourceTransformForMask(MaskInfo(0, 0)).estimateBounds(it) }
@@ -156,7 +156,7 @@ class ReplaceLabel(menuText: String, val mode: Mode) : MenuAction(menuText) {
 		paintera.baseView.orthogonalViews().requestRepaint(globalInterval)
 	}
 
-	fun ReplaceLabelState.blocksForLabels(scale0: Int, vararg labels: Long): List<Interval> = with(maskedSource) {
+	fun ReplaceLabelState<*, *>.blocksForLabels(scale0: Int, vararg labels: Long): List<Interval> = with(maskedSource) {
 		val blocksFromSource = labels.flatMap { sourceState.labelBlockLookup.read(LabelBlockLookupKey(scale0, it)).toList() }
 
 		/* Read from canvas access (if in canvas) */

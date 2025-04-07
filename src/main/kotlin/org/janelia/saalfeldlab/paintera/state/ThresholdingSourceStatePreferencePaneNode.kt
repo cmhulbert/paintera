@@ -21,6 +21,7 @@ import org.janelia.saalfeldlab.paintera.meshes.MeshInfo
 import org.janelia.saalfeldlab.paintera.meshes.ui.MeshSettingsController
 import org.janelia.saalfeldlab.paintera.meshes.ui.exportMeshWithProgressPopup
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initAppDialog
 import org.janelia.saalfeldlab.paintera.ui.source.mesh.MeshExporterDialog
 
 class ThresholdingSourceStatePreferencePaneNode(private val state: ThresholdingSourceState<*, *>) {
@@ -60,7 +61,7 @@ class ThresholdingSourceStatePreferencePaneNode(private val state: ThresholdingS
 
 		val helpDialog = PainteraAlerts
 			.alert(Alert.AlertType.INFORMATION, true).apply {
-				PainteraAlerts.initAppDialog(this, Modality.NONE)
+				initAppDialog(null, Modality.NONE)
 				headerText = "Threshold"
 				contentText = "TODO" /* TODO */
 			}

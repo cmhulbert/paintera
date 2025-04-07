@@ -4,16 +4,19 @@ import javafx.beans.property.*
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.event.Event
+import net.imglib2.Volatile
 import net.imglib2.type.numeric.IntegerType
+import net.imglib2.type.numeric.RealType
 import org.janelia.saalfeldlab.fx.actions.Action
-import org.janelia.saalfeldlab.paintera.control.actions.ActionState
-import org.janelia.saalfeldlab.paintera.control.actions.verify
+import org.janelia.saalfeldlab.fx.actions.verifiable
+import org.janelia.saalfeldlab.paintera.control.actions.state.MaskedSourceActionState
 import org.janelia.saalfeldlab.paintera.control.modes.PaintLabelMode
 import org.janelia.saalfeldlab.paintera.control.tools.paint.StatePaintContext
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
 
 interface ReplaceLabelUIState {
+
 
 	val activeFragment: Long
 	val activeSegment: Long
@@ -33,12 +36,13 @@ interface ReplaceLabelUIState {
 
 }
 
-class ReplaceLabelState : ActionState<ReplaceLabelState>, ReplaceLabelUIState {
-	internal lateinit var sourceState: ConnectomicsLabelState<*, *>
-	internal lateinit var paintContext: StatePaintContext<*, *>
-
-	internal val maskedSource
-		get() = paintContext.dataSource
+class ReplaceLabelState<D, T> :
+	MaskedSourceActionState.ActiveSource<ConnectomicsLabelState<D, T>, D, T>(),
+	ReplaceLabelUIState
+		where D : IntegerType<D>, T : RealType<T>, T : Volatile<D> {
+	internal var paintContext by verifiable("Paint Label Mode has StatePaintContext") {
+		(paintera.currentMode as? PaintLabelMode)?.statePaintContext as? StatePaintContext<*, *>
+	}
 
 	internal val assignment
 		get() = paintContext.assignment
@@ -83,32 +87,23 @@ class ReplaceLabelState : ActionState<ReplaceLabelState>, ReplaceLabelUIState {
 
 	override fun nextId() = sourceState.nextId()
 
-	override fun <E : Event> Action<E>.verifyState() {
-		verify(::sourceState, "Label Source is Active") { paintera.currentSource as? ConnectomicsLabelState<*, *> }
-		verify(::paintContext, "Paint Label Mode has StatePaintContext") {
-			(paintera.currentMode as? PaintLabelMode)
-				?.statePaintContext as? StatePaintContext<*, *>
-		}
-		verify("Paint Label Mode is Active") { paintera.currentMode is PaintLabelMode }
-		verify("Paintera is not disabled") { !paintera.baseView.isDisabledProperty.get() }
+	override fun <E : Event> verifyState(action: Action<E>) = with(action) {
+		super.verifyState(action)
 		verify("Mask not in use") { !paintContext.dataSource.isMaskInUseBinding().get() }
 	}
 
-	override fun copyVerified() = ReplaceLabelState().also {
-		it.sourceState = sourceState
-		it.paintContext = paintContext
-	}
-
-	internal fun initializeForMode(mode : Mode) {
+	internal fun initializeForMode(mode: Mode) {
 		when (mode) {
 			Mode.Delete -> {
 				replacementLabelProperty.value = 0L
 				activateReplacementLabelProperty.value = false
 			}
+
 			Mode.Replace -> {
 				activateReplacementLabelProperty.value = true
 				replacementLabelProperty.value = paintContext.selectedIds.lastSelection
 			}
+
 			Mode.All -> Unit // Defaults are fine
 		}
 	}

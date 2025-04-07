@@ -7,6 +7,7 @@ import org.janelia.saalfeldlab.paintera.config.input.KeyAndMouseConfigNode
 import org.janelia.saalfeldlab.paintera.paintera
 import org.janelia.saalfeldlab.paintera.properties
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initAppDialog
 import org.slf4j.LoggerFactory
 
 internal object KeyBindingsDialog {
@@ -21,7 +22,7 @@ internal object KeyBindingsDialog {
 	}
 	val dialog: Alert by lazy {
 		PainteraAlerts.information("_Close", true).apply {
-			PainteraAlerts.initAppDialog(this, Modality.NONE)
+			initAppDialog(null, Modality.NONE)
 			dialogPane.content = keyBindingsPane
 			graphic = null
 			headerText = null

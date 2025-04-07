@@ -88,7 +88,6 @@ import net.imglib2.util.Intervals;
 import net.imglib2.view.ExtendedRealRandomAccessibleRealInterval;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
-import org.checkerframework.common.reflection.qual.Invoke;
 import org.janelia.saalfeldlab.fx.Tasks;
 import org.janelia.saalfeldlab.fx.UtilityTask;
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread;
@@ -126,6 +125,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -139,7 +139,6 @@ import java.util.function.Supplier;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
-import java.util.stream.Stream;
 
 /**
  * Wrap a paintable canvas around a source that provides background.
@@ -231,7 +230,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 	private final BooleanProperty isBusy = new SimpleBooleanProperty(null, "Masked Source Is Busy");
 
-	private final Map<Long, TLongHashSet>[] affectedBlocksByLabel;
+	private final ConcurrentHashMap<Long, TLongHashSet>[] affectedBlocksByLabel;
 
 	private final List<Runnable> canvasClearedListeners = new ArrayList<>();
 
@@ -309,7 +308,10 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 				this.blockSizes));
 		this.cacheDirectory.set(initialCacheDirectory);
 
-		this.affectedBlocksByLabel = Stream.generate(HashMap::new).limit(this.canvases.length).toArray(Map[]::new);
+		this.affectedBlocksByLabel = new ConcurrentHashMap[canvases.length];
+		for (int level = 0; level < canvases.length; level++) {
+			affectedBlocksByLabel[level] = new ConcurrentHashMap<>();
+		}
 
 		isBusyProperty().addListener((obs, oldv, busy) -> {
 			if (!busy) {
@@ -1287,7 +1289,9 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 			for (Entry<Long, Set<Long>> entry : blocksModifiedByLabel.entrySet()) {
 				final Long labelId = entry.getKey();
 				final Set<Long> blocks = entry.getValue();
-				this.affectedBlocksByLabel[lowerResLevel].computeIfAbsent(labelId, k -> new TLongHashSet()).addAll(blocks);
+				synchronized (affectedBlocksByLabel) {
+					affectedBlocksByLabel[lowerResLevel].computeIfAbsent(labelId, k -> new TLongHashSet()).addAll(blocks);
+				}
 			}
 			LOG.debug("Downsampled level {}", lowerResLevel);
 		}

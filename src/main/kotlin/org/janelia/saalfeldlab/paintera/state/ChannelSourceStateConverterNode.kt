@@ -10,7 +10,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
-import javafx.stage.Modality
 import org.janelia.saalfeldlab.net.imglib2.converter.ARGBCompositeColorConverter
 import org.janelia.saalfeldlab.fx.Menus
 import org.janelia.saalfeldlab.fx.TitledPanes
@@ -21,6 +20,7 @@ import org.janelia.saalfeldlab.fx.ui.NumericSliderWithField
 import org.janelia.saalfeldlab.fx.ui.ObjectField
 import org.janelia.saalfeldlab.paintera.Constants
 import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts
+import org.janelia.saalfeldlab.paintera.ui.PainteraAlerts.initOwnerWithDefault
 import org.janelia.saalfeldlab.util.Colors
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
@@ -103,7 +103,7 @@ class ChannelSourceStateConverterNode(private val converter: ARGBCompositeColorC
 			setButton.tooltip = Tooltip("Change channels globally.")
 
 			val helpDialog = PainteraAlerts.alert(Alert.AlertType.INFORMATION, true).apply {
-				PainteraAlerts.initOwner(this)
+				initOwnerWithDefault(null)
 				headerText = "Conversion of channel data into ARGB color space."
 				contentText = DESCRIPTION
 			}
