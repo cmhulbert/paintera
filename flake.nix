@@ -1,5 +1,5 @@
 {
-  description = "Paintera";
+  description = "Paintera - 3D visualization and annotation tool";
 
   inputs = {
     devenv-root = {
@@ -31,8 +31,85 @@
         # module parameters provide easy access to attributes of the same
         # system.
 
-        # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
-        packages.default = pkgs.hello;
+        packages.paintera = pkgs.maven.buildMavenPackage rec {
+          pname = "paintera";
+          version = "1.10.3-SNAPSHOT";
+
+          src = ./.;
+
+          mvnHash = "sha256-wYli8Jkzn53MMZw0l8v/W1tiqDorqKOHO6TNUdvqr9s=";
+
+          nativeBuildInputs = with pkgs; [
+            makeWrapper
+          ];
+
+          buildInputs = with pkgs; [
+            (openjdk21.override { enableJavaFX = true; })
+            c-blosc
+          ];
+
+          mvnParameters = "-DskipTests";
+
+          installPhase = ''
+            mkdir -p $out/bin $out/share/java/paintera
+            
+            # Copy the main JAR and all dependencies
+            cp target/dependency/*.jar $out/share/java/paintera/
+            
+            # Create classpath from all JARs
+            CLASSPATH=""
+            for jar in $out/share/java/paintera/*.jar; do
+              if [ -z "$CLASSPATH" ]; then
+                CLASSPATH="$jar"
+              else
+                CLASSPATH="$CLASSPATH:$jar"
+              fi
+            done
+            
+            # Create wrapper script that runs with proper classpath and JavaFX module system arguments
+            makeWrapper ${pkgs.openjdk21.override { enableJavaFX = true; }}/bin/java $out/bin/paintera \
+              --add-flags "-XX:MaxRAMPercentage=75" \
+              --add-flags "--add-opens=javafx.base/javafx.util=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.base/javafx.event=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.base/javafx.beans.property=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.base/com.sun.javafx.binding=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.base/com.sun.javafx.event=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.stage=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.geometry=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.animation=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.scene.input=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/javafx.scene.image=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.prism=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.image=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.scene=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.perf=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.cursor=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.scene.traversal=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.geom.transform=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.scenario.animation=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.scenario.animation.shared=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.scenario.effect=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.javafx.sg.prism=ALL-UNNAMED" \
+              --add-flags "--add-opens=javafx.graphics/com.sun.prism.paint=ALL-UNNAMED" \
+              --add-flags "--add-exports=javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED" \
+              --add-flags "-cp $CLASSPATH org.janelia.saalfeldlab.paintera.Paintera" \
+              --prefix LD_LIBRARY_PATH : ${pkgs.c-blosc}/lib \
+              --prefix DYLD_LIBRARY_PATH : ${pkgs.c-blosc}/lib
+          '';
+        };
+
+        apps.paintera = {
+          type = "app";
+          program = "${config.packages.paintera}/bin/paintera";
+        };
+
+        apps.default = config.apps.paintera;
+        packages.default = config.packages.paintera;
 
         devenv.shells.default = {
           name = "paintera";
