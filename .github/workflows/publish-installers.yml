@@ -25,6 +25,9 @@ jobs:
     needs: build_installers
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git-cliff to access full history
       - name: Download Artifacts
         uses: actions/download-artifact@v4
       - name: Set Version
@@ -36,6 +39,19 @@ jobs:
           else
             echo "PRERELEASE=true" >> $GITHUB_ENV
           fi
+      - name: Generate Release Notes
+        if: env.PRERELEASE == 'false'
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: -l --strip header --output RELEASE_NOTES.md
+        env:
+          OUTPUT: RELEASE_NOTES.md
+      - name: Generate Simple Release Notes for Pre-release
+        if: env.PRERELEASE == 'true'
+        run: |
+          echo "## Changes" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          git log --oneline --max-count=10 >> RELEASE_NOTES.md
       - name: Display structure of downloaded files
         run: ls -R
       - name: Rename Artifacts
@@ -51,6 +67,7 @@ jobs:
           name: Paintera ${{ env.VERSION }}
           tag_name: ${{ github.ref }}
           prerelease: ${{ env.PRERELEASE }}
+          body_path: RELEASE_NOTES.md
           files: |
             Paintera-${{ env.VERSION }}-Windows.msi
             Paintera-${{ env.VERSION }}-ubuntu-22.04_x86_64.deb
