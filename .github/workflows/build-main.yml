@@ -45,3 +45,52 @@ jobs:
           MAVEN_PASS: ${{ secrets.MAVEN_PASS }}
           OSSRH_PASS: ${{ secrets.OSSRH_PASS }}
           SIGNING_ASC: ${{ secrets.SIGNING_ASC }}
+
+  create_prerelease:
+    if: github.ref == 'refs/heads/master'
+    name: Create Pre-release with Installers
+    uses: ./.github/workflows/build-installers.yml
+    secrets: inherit
+
+  publish_prerelease:
+    if: github.ref == 'refs/heads/master' && success()
+    needs: create_prerelease
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+      - name: Set Version
+        run: |
+          short_sha=$(git rev-parse --short HEAD)
+          # Extract version from pom.xml and append short SHA
+          pom_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "VERSION=${pom_version}-${short_sha}" >> $GITHUB_ENV
+      - name: Display structure of downloaded files
+        run: ls -R
+      - name: Rename Artifacts
+        run: |
+          mv Paintera-windows-latest-*/*.msi Paintera-${{ env.VERSION }}-Windows.msi
+          mv Paintera-ubuntu-22.04-*/*.deb Paintera-${{ env.VERSION }}-ubuntu-22.04_x86_64.deb
+          mv Paintera-ubuntu-24.04-*/*.deb Paintera-${{ env.VERSION }}-ubuntu-24.04_x86_64.deb
+          mv Paintera-macos-13-*/*.dmg Paintera-${{ env.VERSION }}-MacOS-Intel.dmg
+          mv Paintera-macos-14-*/*.dmg Paintera-${{ env.VERSION }}-MacOS-AppleSilicon.dmg
+      - name: Create Pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Paintera ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          prerelease: true
+          files: |
+            Paintera-${{ env.VERSION }}-Windows.msi
+            Paintera-${{ env.VERSION }}-ubuntu-22.04_x86_64.deb
+            Paintera-${{ env.VERSION }}-ubuntu-24.04_x86_64.deb
+            Paintera-${{ env.VERSION }}-MacOS-Intel.dmg
+            Paintera-${{ env.VERSION }}-MacOS-AppleSilicon.dmg
