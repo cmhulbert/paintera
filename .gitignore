@@ -28,6 +28,16 @@ canvases
 *dockerfile
 /meshes
 
+# nix / devenv
+.devenv/
+.devenv.flake.nix
+.envrc
+devenv.lock
+result
+
 # ignore scijava scripts if presetn
 ci-build.sh
 ci-setup-github-actions.sh
+
+# ai related
+.claude
