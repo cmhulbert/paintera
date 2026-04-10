@@ -40,8 +40,8 @@
           # local repo contents (and thus mvnHash) differ per OS.
           mvnHashes = {
             x86_64-linux   = "sha256-1LepWFzITv49/ps8T2m/vajSaDUUva7lLVcuAhPpBxI=";
-            aarch64-darwin = "";  # compute on first aarch64-darwin build
-            x86_64-darwin  = "";  # compute on first x86_64-darwin build
+            aarch64-darwin = "sha256-DP7OCp+j8DAaFCL7g+D9Gb5jeZzqZlRyqUJ3muNuF9U=";
+            x86_64-darwin  = "sha256-FJXl3upHKgpz75+CKNl8x1kvK9Yiv4ghXXDvz3FvCO4=";
           };
 
           addOpens = builtins.concatStringsSep " " [
