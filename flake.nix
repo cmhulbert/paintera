@@ -39,7 +39,7 @@
           # Maven fetches platform-specific JavaFX classifier JARs, so the
           # local repo contents (and thus mvnHash) differ per OS.
           mvnHashes = {
-            x86_64-linux   = "sha256-1LepWFzITv49/ps8T2m/vajSaDUUva7lLVcuAhPpBxI=";
+            x86_64-linux   = "sha256-aXjy2jX0Pr/t3K+yMfDV2XesG8FUp3ZaQaoUB4tCU5A=";
             aarch64-darwin = "sha256-DP7OCp+j8DAaFCL7g+D9Gb5jeZzqZlRyqUJ3muNuF9U=";
             x86_64-darwin  = "sha256-FJXl3upHKgpz75+CKNl8x1kvK9Yiv4ghXXDvz3FvCO4=";
           };

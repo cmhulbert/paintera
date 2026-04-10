@@ -35,18 +35,4 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build
-        run: |
-          if ! nix build .#packages.${{ matrix.system }}.default 2>build-err.log; then
-            hash=$(grep -oP 'got:\s+\K\S+' build-err.log || true)
-            if [ -n "$hash" ]; then
-              echo "### ⚠️ mvnHash mismatch for \`${{ matrix.system }}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo '```' >> "$GITHUB_STEP_SUMMARY"
-              echo "${{ matrix.system }} = \"$hash\";" >> "$GITHUB_STEP_SUMMARY"
-              echo '```' >> "$GITHUB_STEP_SUMMARY"
-              echo "::error::mvnHash mismatch for ${{ matrix.system }}. Correct hash: $hash"
-              exit 1
-            else
-              cat build-err.log >&2
-              exit 1
-            fi
-          fi
+        run: nix build .#packages.${{ matrix.system }}.default
