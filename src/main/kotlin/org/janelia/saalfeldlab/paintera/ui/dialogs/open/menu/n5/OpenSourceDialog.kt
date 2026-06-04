@@ -7,7 +7,6 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.property.StringProperty
 import javafx.beans.value.ObservableValue
-import javafx.event.EventHandler
 import javafx.geometry.Insets
 import javafx.scene.control.*
 import javafx.scene.effect.InnerShadow
@@ -45,6 +44,7 @@ import org.janelia.saalfeldlab.paintera.ui.dialogs.open.menu.n5.N5FactoryOpener.
 import org.janelia.saalfeldlab.paintera.ui.dialogs.open.meta.MetaPanel
 import org.janelia.saalfeldlab.paintera.ui.menus.PainteraMenuItems
 import org.janelia.saalfeldlab.util.PainteraCache
+import org.janelia.saalfeldlab.util.PainteraCache.Companion.distinctCanonicalStrings
 import java.io.File
 import java.util.UUID
 import java.util.function.BiConsumer
@@ -78,13 +78,7 @@ class OpenSourceDialog(
 		}
 	}
 
-	val browseButton: MenuButton = BrowseRecentFavorites.menuButton(
-		"_Find",
-		PainteraCache.RECENT_CONTAINERS.readLines().reversed(),
-		N5FactoryOpener.FAVORITES,
-		EventHandler { updateFromDirectoryChooser() },
-		EventHandler { updateFromFileChooser() }
-	) { containerSelection = it }
+	val browseButton: MenuButton = createBrowseRecentButton()
 
 	val isBusy = SimpleBooleanProperty(false)
 
@@ -114,11 +108,12 @@ class OpenSourceDialog(
 
 		resultConverter = Callback { if (it == ButtonType.OK) state else null }
 		state.metadataStateBinding.subscribe { it ->
-			type = when {
+			val sourceType = when {
 				it == null -> return@subscribe
 				it.isLabel -> MetaPanel.TYPE.LABEL
 				else -> MetaPanel.TYPE.RAW
 			}
+			InvokeOnJavaFXApplicationThread { type = sourceType }
 		}
 
 
@@ -177,6 +172,19 @@ class OpenSourceDialog(
 		initAppDialog()
 		dialogPane.scene.window.sizeToScene()
 	}
+
+	private fun createBrowseRecentButton(): MenuButton {
+
+		return BrowseRecentFavorites.menuButton(
+            "_Find",
+			PainteraCache.RECENT_CONTAINERS.distinctCanonicalStrings(),
+            N5FactoryOpener.FAVORITES,
+            { updateFromDirectoryChooser() },
+            { updateFromFileChooser() }
+        ) {
+			containerSelection = it
+		}
+    }
 
 	private fun updateFromFile(selection: File?) {
 		val file = selection ?: return

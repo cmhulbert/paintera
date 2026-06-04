@@ -779,9 +779,10 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 		synchronized (this) {
 			final boolean canNotResetMask = isCreatingMask() || isApplyingMask.get();
-			LOG.debug("Can reset mask? {}", !canNotResetMask);
-			if (canNotResetMask)
+			if (canNotResetMask) {
+				LOG.error("Cannot reset mask: is creating mask? {} is applying mask? {}", isCreatingMask(), isApplyingMask.get());
 				throw new MaskInUse("Cannot reset the mask.");
+			}
 
 			var mask = getCurrentMask();
 			if (mask != null && mask.shutdown != null)
@@ -835,11 +836,6 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 		final Consumer<String> updateState = (update) -> InvokeOnJavaFXApplicationThread.invoke(() -> states.set(states.size() - 1, update));
 		persistCanvasTask(clearCanvas, progressBar.progressProperty(), nextState, updateState);
 
-		final BooleanBinding stillPersisting = Bindings.createBooleanBinding(
-				() -> this.isPersisting() || progressBar.progressProperty().get() < 1.0,
-				this.isPersistingProperty, progressBar.progressProperty()
-		);
-
 		/*Show the dialog and wait for committing to finish */
 		LOG.warn("Creating commit status dialog.");
 		final Alert isCommittingDialog = PainteraAlerts.alert(Alert.AlertType.INFORMATION, false);
@@ -867,11 +863,11 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 		InvokeOnJavaFXApplicationThread.invoke(() -> isCommittingDialog.getDialogPane().setContent(content));
 		states.addListener((ListChangeListener<String>)change -> statesText.setText(String.join("\n", states)));
 		synchronized (this) {
-			okButton.disableProperty().bind(stillPersisting);
+			okButton.disableProperty().bind(isPersistingProperty);
 		}
 
-		LOG.info("Will show dialog? {}", stillPersisting.get());
-		if (stillPersisting.get())
+		LOG.info("Will show dialog? {}", isPersistingProperty.get());
+		if (isPersistingProperty.get())
 			isCommittingDialog.showAndWait();
 	}
 
@@ -889,7 +885,7 @@ public class MaskedSource<D extends RealType<D>, T extends Type<T>> implements D
 
 		final Consumer<Double> animateProgressBar = newProgress -> {
 			if (progress.get() > newProgress) {
-				progress.set(0.0);
+				InvokeOnJavaFXApplicationThread.invoke(() -> progress.set(0.0));
 			}
 			Timeline timeline = new Timeline();
 			KeyValue keyValue = new KeyValue(progress, newProgress);

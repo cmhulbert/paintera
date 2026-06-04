@@ -19,13 +19,10 @@ import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.cell.CellGrid;
+import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.realtransform.Scale3D;
 import net.imglib2.type.NativeType;
-import net.imglib2.type.label.Label;
-import net.imglib2.type.label.LabelMultisetEntry;
-import net.imglib2.type.label.LabelMultisetType;
-import net.imglib2.type.label.LabelUtils;
-import net.imglib2.type.label.VolatileLabelMultisetArray;
+import net.imglib2.type.label.*;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
@@ -35,13 +32,7 @@ import net.imglib2.view.Views;
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookup;
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey;
 import org.janelia.saalfeldlab.labels.downsample.WinnerTakesAll;
-import org.janelia.saalfeldlab.n5.ByteArrayDataBlock;
-import org.janelia.saalfeldlab.n5.DataBlock;
-import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.LongArrayDataBlock;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5URI;
-import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.*;
 import org.janelia.saalfeldlab.n5.imglib2.N5LabelMultisets;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.paintera.data.mask.persist.PersistCanvas;
@@ -56,20 +47,11 @@ import org.janelia.saalfeldlab.util.n5.N5Helpers;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 
-import static net.imglib2.type.label.LabelMultisetTypeDownscaler.createDownscaledCell;
-import static net.imglib2.type.label.LabelMultisetTypeDownscaler.getSerializedVolatileLabelMultisetArraySize;
-import static net.imglib2.type.label.LabelMultisetTypeDownscaler.serializeVolatileLabelMultisetArray;
+import static net.imglib2.type.label.LabelMultisetTypeDownscaler.*;
 import static org.janelia.saalfeldlab.util.grids.Grids.getRelevantBlocksInTargetGrid;
 
 public class CommitCanvasN5 implements PersistCanvas {
@@ -254,22 +236,35 @@ public class CommitCanvasN5 implements PersistCanvas {
 			progress.set(0.4);
 
 			/* If multiscale, downscale and write the lower scales*/
-			if (isMultiscale()) {
-				final String[] scaleDatasets = N5Helpers.listAndSortScaleDatasets(getN5(), datasetPath);
+			if (metadataState instanceof MultiScaleMetadataState multiscaleMetadataState) {
+				final AffineTransform3D[] scaleTransforms = multiscaleMetadataState.getScaleTransforms();
+				final String[] scalePaths = multiscaleMetadataState.getMetadata().getPaths();
 
-				for (int targetLevel = 1; targetLevel < scaleDatasets.length; ++targetLevel) {
+				for (int targetLevel = 1; targetLevel < scalePaths.length; ++targetLevel) {
 
 					final TLongObjectHashMap<BlockDiff> blockDiffsAt = new TLongObjectHashMap<>();
 					blockDiffs.add(blockDiffsAt);
 
 					final int sourceLevel = targetLevel - 1;
-					final DatasetSpec sourceDataset = DatasetSpec.of(getN5(), N5URI.normalizeGroupPath("%s/%s".formatted(datasetPath, scaleDatasets[sourceLevel])));
+					final DatasetSpec sourceDataset = DatasetSpec.of(getN5(), N5URI.normalizeGroupPath(scalePaths[sourceLevel]));
+					final DatasetSpec targetDataset = DatasetSpec.of(getN5(), N5URI.normalizeGroupPath(scalePaths[targetLevel]));
 
-					final DatasetSpec targetDataset = DatasetSpec.of(getN5(), N5URI.normalizeGroupPath("%s/%s".formatted(datasetPath, scaleDatasets[targetLevel])));
+					AffineTransform3D previousTransform = scaleTransforms[sourceLevel];
+					AffineTransform3D targetTransform = scaleTransforms[targetLevel];
+					AffineTransform3D previousToTarget = targetTransform.copy().concatenate(previousTransform.inverse());
+					final double[] relativeDownsamplingFactors = new double[]{
+							previousToTarget.get(0, 0),
+							previousToTarget.get(1, 1),
+							previousToTarget.get(2, 2)
+					};
 
-					final double[] targetDownsamplingFactors = N5Helpers.getDownsamplingFactors(getN5(), targetDataset.dataset);
-					final double[] sourceDownsamplingFactors = N5Helpers.getDownsamplingFactors(getN5(), sourceDataset.dataset);
-					final double[] relativeDownsamplingFactors = ArrayMath.divide3(targetDownsamplingFactors, sourceDownsamplingFactors);
+					AffineTransform3D s0ToTarget = targetTransform.copy().concatenate(scaleTransforms[0].inverse());
+
+					final double[] targetDownsamplingFactors = new double[]{
+							s0ToTarget.get(0, 0),
+							s0ToTarget.get(1, 1),
+							s0ToTarget.get(2, 2)
+					};
 
 					final long[] affectedLowResBlocks = getRelevantBlocksInTargetGrid(
 							blocks,
@@ -428,7 +423,8 @@ public class CommitCanvasN5 implements PersistCanvas {
 				maxNumEntries
 		);
 
-		if (updatedAccess.isValid() && updatedAccess.getCurrentStorageArray().length == 0) {
+		boolean currentEmptyBehavior = updatedAccess.getArrayLength() == 0;
+		if (updatedAccess.isValid() && currentEmptyBehavior) {
 			n5.deleteBlock(dataset, blockPosition);
 			return null;
 		}
@@ -870,10 +866,16 @@ public class CommitCanvasN5 implements PersistCanvas {
 					ArrayMath.minOf3(sourceMax, sourceMin, sourceMax);
 
 					LOG.trace(() -> "Reading existing access at position %s and size %s. (%s %s)".formatted(blockSpecCopy.pos, size, blockSpecCopy.min, blockSpecCopy.max));
-					final DataBlock<?> block = n5.readBlock(targetDataset.dataset, targetDataset.attributes, blockSpecCopy.pos);
-					final VolatileLabelMultisetArray oldAccess = block != null && block.getData() instanceof byte[]
-							? LabelUtils.fromBytes((byte[])block.getData(), (int)Intervals.numElements(size))
-							: null;
+					VolatileLabelMultisetArray oldAccess = null;
+					try {
+						final DataBlock<?> block = n5.readBlock(targetDataset.dataset, targetDataset.attributes, blockSpecCopy.pos);
+						oldAccess = block != null && block.getData() instanceof byte[]
+								? LabelUtils.fromBytes((byte[]) block.getData(), (int) Intervals.numElements(size))
+								: null;
+					} catch (N5Exception.N5IOException e) {
+						LOG.debug(e, () -> "");
+						LOG.warn(() -> String.format("Could not read block %s of dataset %s during downsample. Regenerating block.", Arrays.toString(blockSpecCopy.pos), targetDataset.dataset));
+					}
 
 					final VolatileLabelMultisetArray newAccess;
 					try {

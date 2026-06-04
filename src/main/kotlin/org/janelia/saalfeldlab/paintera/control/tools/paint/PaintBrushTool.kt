@@ -55,7 +55,7 @@ private const val END_ERASE = "end erase"
 private const val START_SELECTION_PAINT = "start selection paint"
 private const val END_SELECTION_PAINT = "end selection paint"
 
-open class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, *>?>, mode: ToolMode? = null) :
+open class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<SourceState<*, *>?>, override val mode: ToolMode? = null) :
 	PaintTool(activeSourceStateProperty, mode) {
 
 	override fun newToolBarControl()  = super.newToolBarControl().also { item ->
@@ -163,9 +163,13 @@ open class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<Source
 	}
 
 	internal fun setCurrentLabel(label: Long = statePaintContext?.paintSelection?.invoke() ?: Label.INVALID) {
-		runBlocking {
-			/* Don't change label until all current paint jobs are complete*/
-			paintClickOrDrag?.paintJobs?.joinAll()
+		val controller = paintClickOrDrag ?: return
+		synchronized(controller) {
+			runBlocking {
+				/* Don't change label until all current paint jobs are complete*/
+				controller.paintJobs.joinAll()
+				controller.paintJobs.clear()
+			}
 		}
 		if (currentLabelToPaint == label)
 			return
@@ -275,7 +279,7 @@ open class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<Source
 						} else {
 							paint2D.setBrushCursor(Cursor.NONE)
 							if (!paintera.keyTracker.areKeysDown(*keyTrigger.keyCodes.toTypedArray()) && !enteredWithoutKeyTrigger) {
-								InvokeOnJavaFXApplicationThread { mode?.switchTool(mode.defaultTool) }
+								InvokeOnJavaFXApplicationThread { mode?.apply{ switchTool(defaultTool) } }
 							}
 							isBusySub.getAndSet { Subscription.EMPTY }.unsubscribe()
 						}
@@ -285,7 +289,7 @@ open class PaintBrushTool(activeSourceStateProperty: SimpleObjectProperty<Source
 			}
 		}
 
-		synchronized(paintJobs) {
+		synchronized(this) {
 			runBlocking {
 				paintJobs.joinAll()
 				paintJobs.clear()

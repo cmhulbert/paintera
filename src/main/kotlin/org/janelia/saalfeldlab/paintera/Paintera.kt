@@ -33,10 +33,15 @@ import org.janelia.saalfeldlab.paintera.Paintera.Companion.paintableRunnables
 import org.janelia.saalfeldlab.paintera.config.ScreenScalesConfig
 import org.janelia.saalfeldlab.paintera.data.mask.MaskedSource
 import org.janelia.saalfeldlab.paintera.state.label.ConnectomicsLabelState
+import org.janelia.saalfeldlab.paintera.ui.PainteraSplashScreen
+import org.janelia.saalfeldlab.paintera.ui.SplashScreenFinishPreloader
+import org.janelia.saalfeldlab.paintera.ui.SplashScreenUpdateNotification
+import org.janelia.saalfeldlab.paintera.ui.SplashScreenUpdateNumItemsNotification
 import org.janelia.saalfeldlab.paintera.ui.dialogs.PainteraAlerts
 import org.janelia.saalfeldlab.paintera.util.debug.DebugModeProperty
 import org.janelia.saalfeldlab.paintera.util.logging.LogUtils
 import org.janelia.saalfeldlab.util.PainteraCache
+import org.janelia.saalfeldlab.util.n5.N5Helpers
 import org.janelia.saalfeldlab.util.n5.universe.PainteraN5Factory
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
@@ -125,9 +130,10 @@ class Paintera : Application() {
 			return
 		}
 
-		projectPath?.let {
-			notifySplashScreen(SplashScreenUpdateNotification("Loading Project: ${it.path}", false))
-			PainteraCache.RECENT_PROJECTS.appendLine(projectPath.canonicalPath, 10)
+		projectPath?.let { project ->
+			notifySplashScreen(SplashScreenUpdateNotification("Loading Project: ${project.path}", false))
+			val canonicalString = N5Helpers.canonicalString(project.toURI())
+			PainteraCache.RECENT_PROJECTS.appendLine(canonicalString, 15)
 		} ?: let {
 			notifySplashScreen(SplashScreenUpdateNumItemsNotification(2, false))
 			notifySplashScreen(SplashScreenUpdateNotification("Launching Paintera...", true))
@@ -250,8 +256,8 @@ class Paintera : Application() {
 	}
 
 	fun loadProject(projectDirectory: String? = null) {
-		projectDirectory?.let {
-			if (n5Factory.openReaderOrNull(it) == null) {
+		projectDirectory?.let { pathOrUri ->
+			if (n5Factory.openReaderOrNull(pathOrUri) == null) {
 				val alert = PainteraAlerts.alert(Alert.AlertType.WARNING)
 				alert.headerText = "Paintera Project Not Found"
 				alert.contentText = """

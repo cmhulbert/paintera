@@ -19,6 +19,7 @@ import org.janelia.saalfeldlab.paintera.state.metadata.N5ContainerState
 import org.janelia.saalfeldlab.paintera.ui.dialogs.PainteraAlerts.initAppDialog
 import org.janelia.saalfeldlab.paintera.ui.dialogs.open.OpenSourceState
 import org.janelia.saalfeldlab.util.PainteraCache
+import org.janelia.saalfeldlab.util.n5.N5Helpers
 import java.nio.file.Paths
 
 @OptIn(InternalCoroutinesApi::class)
@@ -92,8 +93,10 @@ class N5FactoryOpener(private val openSourceState: OpenSourceState) {
 				n5?.let { N5ContainerState(it) }
 			}
 			val parseJob = openSourceState.parseContainer(state, parseN5LoaderCache)
-			if (parseJob?.await()?.isNotEmpty() == true)
-				cacheAsRecent(newSelection)
+			if (parseJob?.await()?.isNotEmpty() == true) {
+				val container = state?.reader?.let { N5Helpers.canonicalString(it) } ?: N5Helpers.canonicalString(newSelection)
+				cacheAsRecent(container)
+			}
 		}.invokeOnCompletion { cause ->
 			isBusyProperty.set(false)
 			when (cause) {
