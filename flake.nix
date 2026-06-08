@@ -36,7 +36,7 @@
 
           libPathVar = if pkgs.stdenv.hostPlatform.isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
 
-          # Read the project version out of pom.xml 
+          # Read the project version out of pom.xml
 	  pomVersion = builtins.elemAt
             (builtins.match
               ".*<artifactId>paintera</artifactId>[[:space:]]*<version>([^<]+)</version>.*"
