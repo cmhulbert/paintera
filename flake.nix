@@ -36,6 +36,13 @@
 
           libPathVar = if pkgs.stdenv.hostPlatform.isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
 
+          # Read the project version out of pom.xml 
+	  pomVersion = builtins.elemAt
+            (builtins.match
+              ".*<artifactId>paintera</artifactId>[[:space:]]*<version>([^<]+)</version>.*"
+              (builtins.readFile ./pom.xml))
+            0;
+
           # Maven fetches platform-specific JavaFX classifier JARs, so the
           # local repo contents (and thus mvnHash) differ per OS.
           mvnHashes = {
@@ -78,7 +85,7 @@
         {
           default = pkgs.maven.buildMavenPackage {
             pname = "paintera";
-            version = "1.13.6-SNAPSHOT";
+            version = pomVersion;
 
             src = ./.;
 
