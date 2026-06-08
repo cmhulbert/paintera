@@ -7,16 +7,24 @@
 
   nixConfig = {
     extra-substituters = [ "https://paintera.cachix.org" ];
-    extra-trusted-public-keys = [ "paintera.cachix.org-1:aUGNAhlQ6mCuV+YsjPNkaR+LdfHO3PtHtpZitvcK3Nw=" ];
+    extra-trusted-public-keys = [
+      "paintera.cachix.org-1:aUGNAhlQ6mCuV+YsjPNkaR+LdfHO3PtHtpZitvcK3Nw="
+    ];
   };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ];
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
     in
     {
-      packages = forAllSystems (system:
+      packages = forAllSystems (
+        system:
         let
           pkgs = import nixpkgs { inherit system; };
           jdk = pkgs.zulu25.override { enableJavaFX = true; };
@@ -37,18 +45,14 @@
           libPathVar = if pkgs.stdenv.hostPlatform.isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
 
           # Read the project version out of pom.xml
-	  pomVersion = builtins.elemAt
-            (builtins.match
-              ".*<artifactId>paintera</artifactId>[[:space:]]*<version>([^<]+)</version>.*"
-              (builtins.readFile ./pom.xml))
-            0;
+          pomVersion = builtins.elemAt (builtins.match ".*<artifactId>paintera</artifactId>[[:space:]]*<version>([^<]+)</version>.*" (builtins.readFile ./pom.xml)) 0;
 
           # Maven fetches platform-specific JavaFX classifier JARs, so the
           # local repo contents (and thus mvnHash) differ per OS.
           mvnHashes = {
-            x86_64-linux   = "sha256-aXjy2jX0Pr/t3K+yMfDV2XesG8FUp3ZaQaoUB4tCU5A=";
-            aarch64-darwin = "sha256-DP7OCp+j8DAaFCL7g+D9Gb5jeZzqZlRyqUJ3muNuF9U=";
-            x86_64-darwin  = "sha256-FJXl3upHKgpz75+CKNl8x1kvK9Yiv4ghXXDvz3FvCO4=";
+            x86_64-linux = "sha256-46IF5M/q88gj4eap7dW2MTWcoOxwkd8vNSz1ugrSReU=";
+            aarch64-darwin = "sha256-vzIihQAcyOE3uj9UP6+a9u2nT5SD+Sv6qNKKuda5YIg=";
+            x86_64-darwin = "sha256-D74zmGacaRpWreQLc/56BWmuY46pOnrlESj7ec+s+Ro=";
           };
 
           addOpens = builtins.concatStringsSep " " [
@@ -119,7 +123,8 @@
               platforms = supportedSystems;
             };
           };
-        });
+        }
+      );
 
       apps = forAllSystems (system: {
         default = {
