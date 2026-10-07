@@ -1,0 +1,7 @@
+.source-name:readonly {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-text-fill: -fx-text-base-color;
+    -fx-highlight-text-fill: -fx-text-base-color;
+}

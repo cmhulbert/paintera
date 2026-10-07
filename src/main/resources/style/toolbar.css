@@ -28,7 +28,7 @@
      *-menu-bar-height-percent-of-toolbar-control-height: calc(2 - (1.125));
      *-menu-bar-height-percent-of-toolbar-control-height: 87.5;
      */
-    -fx-background-color: linear-gradient(to bottom, -menu-bar-start-color, -menu-bar-end-color 87.5%, -menu-bar-end-color);
+    /*-fx-background-color: linear-gradient(to bottom, -menu-bar-start-color, -menu-bar-end-color 87.5%, -menu-bar-end-color);*/
 }
 
 .toolbar-control {

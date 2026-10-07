@@ -1,0 +1,92 @@
+/* default javafx is 13, but some themes make it larger.
+This ensure the layout doesn't change when the theme changes */
+.root {
+    -fx-font-size: 13px;
+}
+
+/* Compact layout. AtlantaFX only ships a `dense` variant for a handful of controls and
+ * nothing for the menu bar, so the dense values are applied here globally instead. */
+.menu-bar > .container {
+    -fx-padding: 2px 4px 2px 4px;
+}
+
+.menu-bar > .container > .menu-button {
+    -fx-padding: 3px 8px 3px 8px;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-padding: 0.2em 0.3em 0.2em 0.3em;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab > .tab-container > .tab-label {
+    -fx-padding: 0.2em 0.2em 0.2em 0.2em;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:left > .tab-container > .tab-label,
+.tab-pane > .tab-header-area > .headers-region > .tab:right > .tab-container > .tab-label {
+    -fx-padding: 0.15em 0.3em 0.15em 0.3em;
+}
+
+/* make title panes more compact, like Modena has*/
+.titled-pane > .title {
+    -fx-padding: 5px 10px 5px 10px;
+}
+
+.titled-pane > .title > .text {
+    -fx-font-size: 1.1em;
+}
+
+.titled-pane > .title > .arrow-button {
+    -fx-padding: 0 10px 0 0;
+}
+
+.titled-pane > .content {
+    -fx-padding: 0 0;
+}
+
+.list-view .list-cell {
+    -fx-cell-size: 2em;
+}
+
+.table-view > .column-header-background .column-header {
+    -fx-size: 34px;
+}
+
+.table-view .table-row-cell {
+    -fx-cell-size: 2em;
+}
+
+.tree-view .tree-cell {
+    -fx-padding: 0.25em 0 0.25em 0;
+}
+
+.tree-table-view .tree-table-row-cell {
+    -fx-cell-size: 2em;
+}
+
+/* AtlantaFX pads text inputs 8px 12px, which clips values in narrow fixed-width fields;
+ * use Modena's input padding instead. */
+.text-input {
+    -fx-padding: 0.333333em 0.583em 0.333333em 0.583em;
+}
+
+/* ControlsFX notification popups hardcode near-black text on -fx-body-color, which the AtlantaFX
+ * aliases map to a dark background. Follow the theme's text color instead. */
+.notification-bar > .pane .title,
+.notification-bar > .pane .label {
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.notification-bar > .pane .close-button > .graphic {
+    -fx-background-color: -fx-mid-text-color;
+}
+
+.notification-bar > .pane .close-button:hover > .graphic,
+.notification-bar > .pane .close-button:pressed > .graphic {
+    -fx-background-color: -fx-text-base-color;
+}
+
+.notification-bar > .pane .close-button:hover,
+.notification-bar > .pane .close-button:pressed {
+    -fx-background-color: -fx-hover-base;
+}

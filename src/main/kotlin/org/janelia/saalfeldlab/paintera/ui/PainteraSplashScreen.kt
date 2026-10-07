@@ -24,6 +24,7 @@ import org.janelia.saalfeldlab.fx.extensions.createNonNullValueBinding
 import org.janelia.saalfeldlab.fx.extensions.nonnull
 import org.janelia.saalfeldlab.fx.extensions.nullable
 import org.janelia.saalfeldlab.fx.util.InvokeOnJavaFXApplicationThread
+import org.janelia.saalfeldlab.paintera.Paintera
 import kotlin.math.roundToInt
 
 open class SplashScreenNotification : Preloader.PreloaderNotification
@@ -235,6 +236,8 @@ class PainteraSplashScreen : Preloader() {
 
 	override fun start(primaryStage: Stage) {
 		stage = primaryStage
+		/* The preloader shows before Paintera.start applies the theme, so apply it here as well */
+		setUserAgentStylesheet(Paintera.themeProperty.value.userAgentStylesheet)
 		stage.initStyle(StageStyle.TRANSPARENT)
 		stage.isResizable = false
 		val scene = Scene(root, Color.TRANSPARENT)

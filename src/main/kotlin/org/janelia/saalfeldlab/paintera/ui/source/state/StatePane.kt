@@ -8,9 +8,7 @@ import javafx.geometry.Pos
 import javafx.scene.control.*
 import javafx.scene.control.ContentDisplay
 import javafx.scene.layout.*
-import javafx.scene.paint.Color
 import org.janelia.saalfeldlab.fx.TextFields
-import org.janelia.saalfeldlab.fx.extensions.createNonNullValueBinding
 import org.janelia.saalfeldlab.fx.extensions.createNullableValueBinding
 import org.janelia.saalfeldlab.fx.extensions.nonnull
 import org.janelia.saalfeldlab.fx.ui.NamedNode
@@ -67,7 +65,7 @@ class StatePane(
 				it.textProperty()
 					.bind(nameProperty.createNullableValueBinding { name -> "Source $name: Double click to change name, enter to confirm, escape to discard." })
 			}
-			backgroundProperty().bind(editableProperty().createNonNullValueBinding { if (it) EDITABLE_BACKGROUND else UNEDITABLE_BACKGROUND })
+			addStyleClass("source-name")
 			HBox.setHgrow(this, Priority.ALWAYS)
 		}
 		val titleBox = HBox(
@@ -94,10 +92,6 @@ class StatePane(
 		private const val LEFT_PADDING = 0.0
 
 		private const val RIGHT_PADDING = 0.0
-
-		private val EDITABLE_BACKGROUND = Background(BackgroundFill(Color.WHITE, CornerRadii.EMPTY, Insets(-1.4, 0.0, 1.0, 2.0)))
-
-		private val UNEDITABLE_BACKGROUND = Background(BackgroundFill(Color.WHITE.deriveColor(0.0, 1.0, 1.0, 0.5), CornerRadii.EMPTY, Insets.EMPTY))
 
 	}
 

@@ -28,7 +28,6 @@ import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
-import javafx.scene.paint.Color
 import javafx.stage.Stage
 import javafx.util.Callback
 import javafx.util.Subscription
@@ -309,23 +308,22 @@ class CreateDatasetUI(val model: CreateDatasetModel) : VBox() {
 	}
 }
 
-/** Collapsed combo header cell: shows just the [shortLabel] of the item, black text without the blue highlighting. */
+/** Collapsed combo header cell: shows just the [shortLabel] of the item, plain text without the highlighting. */
 private class SingleLetterTypeCell<T>(private val shortLabel: (T) -> String?) : ListCell<T>() {
 	init {
 		alignment = Pos.CENTER
+		styleClass += "short-label-cell"
 	}
 
 	override fun updateItem(item: T?, empty: Boolean) {
 		super.updateItem(item, empty)
 		text = item?.takeUnless { empty }?.let(shortLabel)
-		style = "-fx-background-color: transparent; -fx-text-fill: black;"
 	}
 }
 
 private class FullNameTypeCell<T> : ListCell<T>() {
 	init {
 		alignment = Pos.CENTER
-		textFill = Color.BLACK
 	}
 
 	override fun updateItem(item: T?, empty: Boolean) {

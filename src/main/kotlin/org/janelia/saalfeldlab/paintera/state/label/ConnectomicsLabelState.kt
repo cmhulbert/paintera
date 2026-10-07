@@ -385,7 +385,7 @@ class ConnectomicsLabelState<D : IntegerType<D>, T>(
 		): HBox {
 
 			val lastSelectedLabelColorRect = Rectangle(13.0, 13.0)
-			lastSelectedLabelColorRect.stroke = Color.BLACK
+			lastSelectedLabelColorRect.styleClass += "label-color-swatch"
 
 			val lastSelectedLabelColorRectTooltip = Tooltip()
 			Tooltip.install(lastSelectedLabelColorRect, lastSelectedLabelColorRectTooltip)

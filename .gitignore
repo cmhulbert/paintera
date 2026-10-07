@@ -28,14 +28,20 @@ canvases
 *dockerfile
 /meshes
 
-# nix / devenv
+# ignore scijava scripts if presetn
+ci-build.sh
+ci-setup-github-actions.sh
+tests_data/
+
+# nix / devenv / direnv
 .devenv/
+.devenv*
+devenv.local.nix
+devenv.local.yaml
 .devenv.flake.nix
 .envrc
 devenv.lock
 result
 
-# ignore scijava scripts if presetn
-ci-build.sh
-ci-setup-github-actions.sh
-tests_data/
+# pre-commit
+.pre-commit-config.yaml

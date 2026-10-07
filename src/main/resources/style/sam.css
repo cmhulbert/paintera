@@ -29,7 +29,7 @@
 .sam-point > .toolbar-graphic {
 
     -fx-background-color: -include-fill;
-    -fx-border-color: black;
+    -fx-border-color: -icons-color;
     -fx-border-width: .2em;
     -fx-background-radius: 50%;
     -fx-border-radius: 50%;
@@ -48,7 +48,7 @@
 }
 
 .auto-sam > .toolbar-graphic {
-    -fx-background-color: black;
+    -fx-background-color: -icons-color;
 }
 
 .auto-sam.slice-left > .toolbar-graphic {

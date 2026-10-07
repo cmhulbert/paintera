@@ -1,5 +1,8 @@
 package org.janelia.saalfeldlab.paintera
 
+import atlantafx.base.theme.Dracula
+import atlantafx.base.theme.PrimerDark
+import atlantafx.base.theme.Theme
 import ch.qos.logback.classic.Level
 import com.sun.javafx.application.PlatformImpl
 import com.sun.javafx.stage.StageHelper
@@ -7,7 +10,9 @@ import com.sun.javafx.stage.WindowHelper
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.application.Preloader
+import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
 import javafx.event.EventHandler
 import javafx.scene.Parent
@@ -78,6 +83,10 @@ class Paintera : Application() {
 	}
 
 	override fun start(primaryStage: Stage) {
+		themeProperty.subscribe { theme ->
+			setUserAgentStylesheet(theme.userAgentStylesheet)
+			AtlantaFxAliasStylesheet.activeProperty.value = theme.isAtlantaFx
+		}
 		start(primaryStage, null)
 	}
 
@@ -414,7 +423,13 @@ class Paintera : Application() {
 			SaalFxStyle.registerStylesheets(styleable)
 		}
 
+		val themeProperty: ObjectProperty<Theme> = SimpleObjectProperty(Dracula())
+
+		private val Theme.isAtlantaFx
+			get() = userAgentStylesheet !in setOf(Application.STYLESHEET_MODENA, Application.STYLESHEET_CASPIAN)
+
 		private val stylesheets: List<String> = listOf(
+			"style/user-agent-overrides.css",
 			"style/graphics.css",
 			"style/ikonli.css",
 			"style/menubar.css",
@@ -426,16 +441,19 @@ class Paintera : Application() {
 			"style/paint.css",
 			"style/raw-source.css",
 			"style/mesh.css",
+			"style/source-state.css",
 			"style/open-source.css"
 		)
 
 		private fun registerPainteraStylesheets(styleable: Scene) {
 			DynamicCssProperty.register(styleable.stylesheets)
+			AtlantaFxAliasStylesheet.register(styleable.stylesheets)
 			styleable.stylesheets.addAll(stylesheets)
 		}
 
 		private fun registerPainteraStylesheets(styleable: Parent) {
 			DynamicCssProperty.register(styleable.stylesheets)
+			AtlantaFxAliasStylesheet.register(styleable.stylesheets)
 			styleable.stylesheets.addAll(stylesheets)
 		}
 

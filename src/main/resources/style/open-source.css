@@ -28,6 +28,12 @@
 }
 
 .coordinate-space-toggle .thumb-area {
-    -fx-background-color: -fx-text-box-border, #0b99c9;
+    -fx-background-color: -fx-text-box-border, -fx-accent;
     -fx-background-insets: 0, 1;
+}
+
+/* collapsed combo header cell: plain text, no selection highlight */
+.short-label-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-base-color;
 }

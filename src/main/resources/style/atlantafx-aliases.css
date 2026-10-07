@@ -1,0 +1,31 @@
+/* Modena variable aliases. AtlantaFX themes define none of these, but ControlsFX stylesheets
+ * and some of our own rules still look them up. Mapping them onto the AtlantaFX semantic colors
+ * keeps those rules resolving under any AtlantaFX theme. This stylesheet is only registered while
+ * an AtlantaFX theme is active; under Modena or Caspian the originals must stay in place. */
+.root {
+    -fx-base: -color-bg-subtle;
+    -fx-background: -color-bg-default;
+    -fx-control-inner-background: -color-bg-default;
+    -fx-control-inner-background-alt: -color-bg-subtle;
+    -fx-accent: -color-accent-emphasis;
+    -fx-default-button: -color-accent-emphasis;
+    -fx-focus-color: -color-accent-emphasis;
+    -fx-faint-focus-color: -color-accent-muted;
+    -fx-selection-bar: -color-accent-emphasis;
+    -fx-selection-bar-text: -color-fg-emphasis;
+    -fx-text-base-color: -color-fg-default;
+    -fx-text-background-color: -color-fg-default;
+    -fx-text-inner-color: -color-fg-default;
+    -fx-dark-text-color: -color-dark;
+    -fx-mid-text-color: -color-fg-muted;
+    -fx-light-text-color: -color-light;
+    -fx-mark-color: -color-fg-default;
+    -fx-text-box-border: -color-border-default;
+    -fx-outer-border: -color-border-default;
+    -fx-inner-border: -color-border-subtle;
+    -fx-box-border: -color-border-default;
+    -fx-body-color: -color-bg-subtle;
+    -fx-shadow-highlight-color: transparent;
+    -fx-hover-base: -color-neutral-muted;
+    -fx-pressed-base: -color-neutral-emphasis;
+}

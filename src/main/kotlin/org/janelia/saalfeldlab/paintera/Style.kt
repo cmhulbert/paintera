@@ -3,6 +3,7 @@ package org.janelia.saalfeldlab.paintera
 import io.github.oshai.kotlinlogging.KotlinLogging
 import javafx.beans.property.IntegerProperty
 import javafx.beans.property.ObjectProperty
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ObservableList
 import javafx.css.CssMetaData
@@ -48,6 +49,22 @@ internal object DynamicCssProperty : SimpleStringProperty("") {
 			styleSheets.add(0, new)
 		}
 		styleSheets.add(0, dataUriProperty.value)
+	}
+}
+
+/** Registered on every Paintera stylesheet list, but only present while [activeProperty] is true. */
+internal object AtlantaFxAliasStylesheet {
+
+	private const val PATH = "style/atlantafx-aliases.css"
+
+	val activeProperty = SimpleBooleanProperty(false)
+
+	fun register(styleSheets: ObservableList<String>) {
+		activeProperty.subscribe { active ->
+			if (active) {
+				if (PATH !in styleSheets) styleSheets.add(0, PATH)
+			} else styleSheets.remove(PATH)
+		}
 	}
 }
 

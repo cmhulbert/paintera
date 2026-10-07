@@ -51,7 +51,7 @@
 		<!-- java -->
 		<scijava.jvm.version>25</scijava.jvm.version>
 		<!-- kotlin -->
-		<kotlin.version>2.3.0</kotlin.version>
+		<kotlin.version>2.3.21</kotlin.version>
 		<kotlin.compiler.incremental>false</kotlin.compiler.incremental>
 
 		<!-- maven config -->
@@ -401,6 +401,12 @@
 			<version>${saalfx.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>io.github.mkpaz</groupId>
+			<artifactId>atlantafx-base</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+
 		<!--		Units and conversion-->
 		<!-- https://mvnrepository.com/artifact/tech.units/indriya -->
 		<dependency>
@@ -510,6 +516,12 @@
             <artifactId>lz4-java</artifactId>
             <version>1.11.2</version>
         </dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-test</artifactId>
+			<version>${kotlin.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<developers>
